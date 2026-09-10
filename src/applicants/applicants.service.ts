@@ -23,7 +23,15 @@ export class ApplicantsService {
       const existing = await this.applicantModel
         .find({ applicantCode: { $regex: `^${prefix}` } })
         .exec();
-      const nextSerial = existing.length + 1;
+      let maxSerial = 0;
+      existing.forEach((app) => {
+        const numStr = app.applicantCode ? app.applicantCode.replace(prefix, '') : '';
+        const parsed = parseInt(numStr, 10);
+        if (!isNaN(parsed) && parsed > maxSerial) {
+          maxSerial = parsed;
+        }
+      });
+      const nextSerial = maxSerial + 1;
       createApplicantDto.applicantCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
     }
 
