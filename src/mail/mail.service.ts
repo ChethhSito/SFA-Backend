@@ -31,39 +31,6 @@ export class MailService {
     const code = data.applicantCode || data.dni || '202610001';
     const pass = data.temporaryPassword || 'clave123';
 
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
-        <div style="background-color: #9F062A; color: #ffffff; padding: 28px 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">IESTP SAN FRANCISCO DE ASÍS</h1>
-          <p style="margin: 6px 0 0 0; font-size: 11px; color: #fecdd3; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Proceso de Admisión Institucional 2026</p>
-        </div>
-        
-        <div style="padding: 28px 24px; color: #334155; font-size: 14px; line-height: 1.7; background-color: #ffffff;">
-          <p style="margin-top: 0; font-size: 15px;">Estimado(a) <strong style="color: #0f172a;">${studentName}</strong>,</p>
-          <p>Queremos confirmarle que se ha completado correctamente su pre-inscripción en la carrera técnica de <strong style="color: #9F062A;">${careerName}</strong> en la base de datos de control académico. Bienvenido(a) al proceso de selección de nuestra prestigiosa institución.</p>
-          
-          <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 18px; margin: 24px 0;">
-            <h3 style="margin: 0 0 14px 0; color: #9F062A; font-size: 12px; text-transform: uppercase; font-weight: 900; text-align: center; letter-spacing: 1px;">Sus Credenciales de Admisión</h3>
-            <p style="margin: 6px 0; font-size: 13px;"><strong>Correo Registrado:</strong> ${data.email}</p>
-            ${data.dni ? `<p style="margin: 6px 0; font-size: 13px;"><strong>DNI / Usuario:</strong> ${data.dni}</p>` : ''}
-            <p style="margin: 6px 0; font-size: 13px;"><strong>Código de Postulante:</strong> <span style="background: #ffffff; border: 1px solid #fecdd3; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 900; color: #9F062A;">${code}</span></p>
-            <p style="margin: 6px 0; font-size: 13px;"><strong>Contraseña Temporal:</strong> <span style="background: #ffffff; border: 1px solid #fecdd3; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 900; color: #9F062A;">${pass}</span></p>
-          </div>
-
-          <div style="text-align: center; margin-top: 28px;">
-            <a href="http://localhost:3000/ingresar" style="background-color: #9F062A; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 900; font-size: 12px; text-transform: uppercase; display: inline-block; letter-spacing: 1px;">Ingresar a la Intranet</a>
-          </div>
-        </div>
-
-        <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 11px; color: #64748b; border-t: 1px solid #e2e8f0;">
-          © 2026 IESTP San Francisco de Asís • Villa María del Triunfo, Lima, Perú
-        </div>
-      </div>
-    `;
-
-    const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL');
-    const senderName = this.configService.get<string>('BREVO_SENDER_NAME') || 'IESTP San Francisco de Asís';
-
     const payload: any = {
       to: [
         {
@@ -72,8 +39,6 @@ export class MailService {
         },
       ],
       templateId,
-      subject: `📥 [IESTP SFA] Credenciales de Admisión - ${studentName}`,
-      htmlContent,
       params: {
         email: data.email,
         applicantCode: code,
@@ -94,6 +59,9 @@ export class MailService {
         LOGIN_URL: 'http://localhost:3000/ingresar',
       },
     };
+
+    const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL');
+    const senderName = this.configService.get<string>('BREVO_SENDER_NAME') || 'IESTP San Francisco de Asís';
 
     if (senderEmail) {
       payload.sender = {
