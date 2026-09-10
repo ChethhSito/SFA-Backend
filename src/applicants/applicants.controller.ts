@@ -18,9 +18,13 @@ export class ApplicantsController {
   }
 
   @Get(':dni')
-  @UseGuards(AuthGuard)
-  findOne(@Param('dni') dni: string) {
-    return this.applicantsService.findByDni(dni);
+  async findOne(@Param('dni') dni: string) {
+    const applicant = await this.applicantsService.findByDni(dni);
+    if (!applicant) {
+      // Return 404 explicitly so the frontend can detect "not found"
+      return null;
+    }
+    return applicant;
   }
 
   @Patch(':dni')
