@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApplicantsService } from './applicants.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
@@ -20,8 +20,7 @@ export class ApplicantsController {
   async findOne(@Param('dni') dni: string) {
     const applicant = await this.applicantsService.findByDni(dni);
     if (!applicant) {
-      // Return 404 explicitly so the frontend can detect "not found"
-      return null;
+      throw new NotFoundException(`Applicant with identifier ${dni} not found`);
     }
     return applicant;
   }
