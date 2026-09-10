@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { AdmissionPeriod, AdmissionPeriodDocument } from './schemas/admission-period.schema';
 
 @Injectable()
@@ -20,7 +20,8 @@ export class AdmissionPeriodsService {
   }
 
   async findOne(id: string): Promise<AdmissionPeriodDocument> {
-    const period = await this.admissionPeriodModel.findById(id).exec();
+    const filter = Types.ObjectId.isValid(id) ? { _id: id } : { id };
+    const period = await this.admissionPeriodModel.findOne(filter).exec();
     if (!period) {
       throw new NotFoundException(`AdmissionPeriod with id ${id} not found`);
     }
@@ -28,16 +29,15 @@ export class AdmissionPeriodsService {
   }
 
   async update(id: string, updateDto: any): Promise<AdmissionPeriodDocument> {
+    const filter = Types.ObjectId.isValid(id) ? { _id: id } : { id };
     const updated = await this.admissionPeriodModel
-      .findByIdAndUpdate(id, updateDto, { new: true })
+      .findOneAndUpdate(filter, updateDto, { new: true, upsert: true })
       .exec();
-    if (!updated) {
-      throw new NotFoundException(`AdmissionPeriod with id ${id} not found`);
-    }
     return updated;
   }
 
   async remove(id: string): Promise<any> {
-    return this.admissionPeriodModel.findByIdAndDelete(id).exec();
+    const filter = Types.ObjectId.isValid(id) ? { _id: id } : { id };
+    return this.admissionPeriodModel.deleteOne(filter).exec();
   }
 }
