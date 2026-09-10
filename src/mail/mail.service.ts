@@ -61,13 +61,21 @@ export class MailService {
       </div>
     `;
 
+    const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'enviador-de-registro@sfa.edu.pe';
+    const senderName = this.configService.get<string>('BREVO_SENDER_NAME') || 'IESTP San Francisco de Asís';
+
     const payload: any = {
+      sender: {
+        name: senderName,
+        email: senderEmail,
+      },
       to: [
         {
           email: data.email,
           name: studentName,
         },
       ],
+      templateId,
       subject: `📥 [IESTP SFA] Credenciales de Admisión - ${studentName}`,
       htmlContent,
       params: {
