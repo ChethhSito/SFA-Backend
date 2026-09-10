@@ -123,15 +123,13 @@ export class MailService {
       htmlContent,
     };
 
-    const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL');
+    const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'raulquintanazinc@gmail.com';
     const senderName = this.configService.get<string>('BREVO_SENDER_NAME') || 'IESTP San Francisco de Asís';
 
-    if (senderEmail) {
-      payload.sender = {
-        name: senderName,
-        email: senderEmail,
-      };
-    }
+    payload.sender = {
+      name: senderName,
+      email: senderEmail,
+    };
 
     try {
       this.logger.log(`Enviando correo transaccional real a ${data.email} con plantilla Brevo #${templateId}...`);
