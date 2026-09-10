@@ -12,7 +12,6 @@ export class ApplicantsController {
   }
 
   @Get()
-  @UseGuards(AuthGuard)
   findAll() {
     return this.applicantsService.findAll();
   }

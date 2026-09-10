@@ -47,8 +47,14 @@ export class ApplicantsService {
     return this.applicantModel.find().exec();
   }
 
-  async findByDni(dni: string): Promise<ApplicantDocument | null> {
-    return this.applicantModel.findOne({ dni }).exec();
+  async findByDni(identifier: string): Promise<ApplicantDocument | null> {
+    return this.applicantModel.findOne({
+      $or: [
+        { dni: identifier },
+        { applicantCode: identifier },
+        { email: identifier.toLowerCase() }
+      ]
+    }).exec();
   }
 
   async update(dni: string, updateApplicantDto: any): Promise<ApplicantDocument> {
