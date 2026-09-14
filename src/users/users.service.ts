@@ -28,15 +28,41 @@ export class UsersService {
     return user;
   }
 
-  async findByUid(uid: string): Promise<UserDocument> {
-    const user = await this.userModel.findOne({ firebaseUid: uid }).exec();
-    if (!user) {
-      throw new NotFoundException(`User with Firebase UID ${uid} not found`);
-    }
-    return user;
+  async create(createDto: any): Promise<UserDocument> {
+    const created = new this.userModel(createDto);
+    return created.save();
   }
 
   async findAll(): Promise<UserDocument[]> {
     return this.userModel.find().exec();
+  }
+
+  async findByUid(uid: string): Promise<UserDocument> {
+    const user = await this.userModel.findOne({ 
+      $or: [
+        { firebaseUid: uid },
+        { dni: uid },
+        { email: uid.toLowerCase() }
+      ] 
+    }).exec();
+    if (!user) {
+      throw new NotFoundException(`User ${uid} not found`);
+    }
+    return user;
+  }
+
+  async update(id: string, updateDto: any): Promise<UserDocument> {
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { $or: [{ _id: id }, { id: id }, { dni: id }] },
+        updateDto,
+        { new: true, upsert: true }
+      )
+      .exec();
+    return updated;
+  }
+
+  async remove(id: string): Promise<any> {
+    return this.userModel.deleteOne({ $or: [{ _id: id }, { id: id }, { dni: id }] }).exec();
   }
 }
