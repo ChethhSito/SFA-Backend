@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -143,7 +145,7 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
-  async create(createDto: any): Promise<UserDocument> {
+  async create(createDto: CreateUserDto): Promise<UserDocument> {
     const created = new this.userModel(createDto);
     return created.save();
   }
@@ -166,7 +168,7 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
-  async update(id: string, updateDto: any): Promise<UserDocument> {
+  async update(id: string, updateDto: UpdateUserDto): Promise<UserDocument> {
     const updated = await this.userModel
       .findOneAndUpdate(
         { $or: [{ _id: id }, { id: id }, { dni: id }] },
