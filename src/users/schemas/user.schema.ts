@@ -35,7 +35,7 @@ export class User {
   @Prop({ default: '123' })
   password?: string;
 
-  @Prop()
+  @Prop({ sparse: true, index: true })
   firebaseUid?: string;
 
   @Prop()

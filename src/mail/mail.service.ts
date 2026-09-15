@@ -1,13 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { IsString, IsNotEmpty, IsOptional, IsEmail } from 'class-validator';
 
 export class SendWelcomeEmailDto {
+  @IsEmail()
+  @IsNotEmpty()
   email: string;
-  name: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
   applicantCode?: string;
+
+  @IsString()
+  @IsOptional()
   dni?: string;
+
+  @IsString()
+  @IsOptional()
   programName?: string;
+
+  @IsString()
+  @IsOptional()
   temporaryPassword?: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @IsString()
+  @IsOptional()
+  url?: string;
 }
 
 @Injectable()
@@ -17,6 +43,12 @@ export class MailService {
   constructor(private configService: ConfigService) {}
 
   async sendWelcomeEmail(data: SendWelcomeEmailDto): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!data || !data.email || !data.email.trim()) {
+      this.logger.debug('ℹ️ Solicitud recibida sin dirección de correo electrónico. Se omite el envío transaccional.');
+      return { success: false, error: 'Dirección de correo electrónico requerida.' };
+    }
+
+    const recipientEmail = data.email.trim();
     const apiKey = this.configService.get<string>('BREVO_API_KEY');
     const rawTemplateId = this.configService.get<string>('BREVO_TEMPLATE_ID') || '5';
     const templateId = parseInt(rawTemplateId, 10);
@@ -29,7 +61,7 @@ export class MailService {
     const studentName = data.name || 'Postulante';
     const careerName = data.programName || 'Programa Técnico Profesional';
     const code = data.applicantCode || data.dni || '202610001';
-    const pass = data.temporaryPassword || 'clave123';
+    const pass = data.temporaryPassword || (data as any).password || 'clave123';
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -115,7 +147,7 @@ export class MailService {
     const payload: any = {
       to: [
         {
-          email: data.email,
+          email: recipientEmail,
           name: studentName,
         },
       ],

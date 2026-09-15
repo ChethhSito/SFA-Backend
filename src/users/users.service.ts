@@ -110,13 +110,18 @@ export class UsersService implements OnModuleInit {
 
     for (const u of initialUsers) {
       try {
+        const userToSeed = {
+          ...u,
+          firebaseUid: (u as any).firebaseUid || `seed-${u.id}`
+        };
+
         const exists = await this.userModel.findOne({
-          $or: [{ email: u.email }, { dni: u.dni }, { id: u.id }]
+          $or: [{ email: userToSeed.email }, { dni: userToSeed.dni }, { id: userToSeed.id }]
         }).exec();
 
         if (!exists) {
-          await this.userModel.create(u);
-          console.log(`[Seed Users] Creado usuario inicial en MongoDB: ${u.email} (${u.role})`);
+          await this.userModel.create(userToSeed);
+          console.log(`[Seed Users] Creado usuario inicial en MongoDB: ${userToSeed.email} (${userToSeed.role})`);
         }
       } catch (err) {
         console.error(`[Seed Users Error] Error al sembrar usuario ${u.email}:`, err);
