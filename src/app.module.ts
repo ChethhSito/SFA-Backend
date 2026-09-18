@@ -11,6 +11,7 @@ import { CoursesModule } from './courses/courses.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { AdmissionPeriodsModule } from './admission-periods/admission-periods.module';
 import { GraduationsModule } from './graduations/graduations.module';
+import { PaymentsModule } from './payments/payments.module';
 import { MailModule } from './mail/mail.module';
 
 @Module({
@@ -27,11 +28,10 @@ import { MailModule } from './mail/mail.module';
     TeachersModule,
     AdmissionPeriodsModule,
     GraduationsModule,
+    PaymentsModule,
     MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
-
