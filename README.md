@@ -7,12 +7,15 @@
 
 Servicio Backend centralizado del **IESTP San Francisco de Asís**, desarrollado con **NestJS**, MongoDB Mongoose y arquitectura limpia por módulos.
 
+📐 **[Ver Estándar Oficial de Desarrollo Backend (ESTANDAR_BACKEND.md)](ESTANDAR_BACKEND.md)**
+
 ---
 
 ## 🛠️ Módulos y Endpoints REST
 
 - 📋 **/applicants**: Gestión de postulantes, expedientes de admisión y pre-inscripción.
 - 👨‍🎓 **/enrollments**: Matrículas, asignación de turnos y estados académicos.
+- 👨‍🎓 **/students**: Expediente de alumnos, datos de contacto y récord de ciclos (I-VI).
 - 💳 **/payments**: Tesorería (MAF), recibos de caja y control de pagos.
 - 📚 **/courses**: Catálogo de cursos, créditos y planificación académica (MPA).
 - 👨‍🏫 **/teachers**: Registro de la planta docente.
