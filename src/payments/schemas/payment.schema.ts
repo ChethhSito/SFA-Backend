@@ -34,5 +34,5 @@ export class Payment {
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);
-PaymentSchema.index({ studentDni: 1 });
 PaymentSchema.index({ date: -1 });
+

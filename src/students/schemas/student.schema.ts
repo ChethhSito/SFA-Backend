@@ -82,5 +82,5 @@ export class Student {
 }
 
 export const StudentSchema = SchemaFactory.createForClass(Student);
-StudentSchema.index({ dni: 1 });
 StudentSchema.index({ email: 1 });
+
