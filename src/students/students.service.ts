@@ -53,4 +53,42 @@ export class StudentsService {
     }
     return updated;
   }
+
+  async updateCourseGrade(dni: string, courseName: string, grade: number): Promise<Student> {
+    let student = await this.studentModel.findOne({ dni }).exec();
+    if (!student) {
+      student = new this.studentModel({ dni, name: 'Estudiante', lastName: 'SFA', email: `${dni}@iestpsfa.edu.pe` });
+    }
+
+    let cycles = student.cycleStatuses || [];
+    if (cycles.length === 0) {
+      cycles = [
+        {
+          cycleNumber: 1,
+          year: 2026,
+          status: 'Matriculado',
+          average: grade,
+          credits: 24,
+          courses: [{ name: courseName, grade, approved: grade >= 13 }]
+        }
+      ];
+    } else {
+      const firstCycle = cycles[0];
+      const existingCourse = firstCycle.courses.find(c => c.name.toLowerCase() === courseName.toLowerCase());
+      if (existingCourse) {
+        existingCourse.grade = grade;
+        existingCourse.approved = grade >= 13;
+      } else {
+        firstCycle.courses.push({ name: courseName, grade, approved: grade >= 13 });
+      }
+      const validGrades = firstCycle.courses.map(c => c.grade).filter(g => typeof g === 'number');
+      if (validGrades.length > 0) {
+        firstCycle.average = Math.round((validGrades.reduce((a, b) => a + b, 0) / validGrades.length) * 10) / 10;
+      }
+    }
+
+    student.cycleStatuses = cycles;
+    student.markModified('cycleStatuses');
+    return student.save();
+  }
 }

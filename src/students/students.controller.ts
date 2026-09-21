@@ -37,4 +37,12 @@ export class StudentsController {
   ): Promise<Student> {
     return this.studentsService.updateCycleStatuses(dni, body.cycleStatuses);
   }
+
+  @Put(':dni/course-grade')
+  async updateCourseGrade(
+    @Param('dni') dni: string,
+    @Body() body: { courseName: string; grade: number },
+  ): Promise<Student> {
+    return this.studentsService.updateCourseGrade(dni, body.courseName, body.grade);
+  }
 }
