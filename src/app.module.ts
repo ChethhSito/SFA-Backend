@@ -7,10 +7,13 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ApplicantsModule } from './applicants/applicants.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { StudentsModule } from './students/students.module';
 import { CoursesModule } from './courses/courses.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { AdmissionPeriodsModule } from './admission-periods/admission-periods.module';
 import { GraduationsModule } from './graduations/graduations.module';
+import { PaymentsModule } from './payments/payments.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -22,14 +25,15 @@ import { GraduationsModule } from './graduations/graduations.module';
     UsersModule,
     ApplicantsModule,
     EnrollmentsModule,
+    StudentsModule,
     CoursesModule,
     TeachersModule,
     AdmissionPeriodsModule,
     GraduationsModule,
+    PaymentsModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
-

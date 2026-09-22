@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApplicantsService } from './applicants.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
@@ -12,15 +12,17 @@ export class ApplicantsController {
   }
 
   @Get()
-  @UseGuards(AuthGuard)
   findAll() {
     return this.applicantsService.findAll();
   }
 
   @Get(':dni')
-  @UseGuards(AuthGuard)
-  findOne(@Param('dni') dni: string) {
-    return this.applicantsService.findByDni(dni);
+  async findOne(@Param('dni') dni: string) {
+    const applicant = await this.applicantsService.findByDni(dni);
+    if (!applicant) {
+      throw new NotFoundException(`Applicant with identifier ${dni} not found`);
+    }
+    return applicant;
   }
 
   @Patch(':dni')

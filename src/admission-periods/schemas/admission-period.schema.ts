@@ -5,6 +5,12 @@ export type AdmissionPeriodDocument = AdmissionPeriod & Document;
 
 @Schema({ timestamps: true })
 export class AdmissionPeriod {
+  @Prop()
+  id?: string;
+
+  @Prop()
+  academicPeriodId?: string;
+
   @Prop({ required: true })
   name: string;
 
