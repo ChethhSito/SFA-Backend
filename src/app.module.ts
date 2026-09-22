@@ -14,6 +14,7 @@ import { AdmissionPeriodsModule } from './admission-periods/admission-periods.mo
 import { GraduationsModule } from './graduations/graduations.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MailModule } from './mail/mail.module';
+import { MpaModule } from './mpa/mpa.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MailModule } from './mail/mail.module';
     GraduationsModule,
     PaymentsModule,
     MailModule,
+    MpaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
