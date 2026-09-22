@@ -7,7 +7,6 @@ export class AdmissionPeriodsController {
   constructor(private readonly admissionPeriodsService: AdmissionPeriodsService) {}
 
   @Post()
-  @UseGuards(AuthGuard)
   create(@Body() createDto: any) {
     return this.admissionPeriodsService.create(createDto);
   }
@@ -23,13 +22,11 @@ export class AdmissionPeriodsController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard)
   update(@Param('id') id: string, @Body() updateDto: any) {
     return this.admissionPeriodsService.update(id, updateDto);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard)
   remove(@Param('id') id: string) {
     return this.admissionPeriodsService.remove(id);
   }
