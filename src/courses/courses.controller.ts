@@ -65,6 +65,14 @@ export class CoursesController {
     return this.coursesService.submitAssignment(id, body);
   }
 
+  @Post(':code/close-grades')
+  closeCourseGrades(
+    @Param('code') code: string,
+    @Body() body: { teacherDni: string },
+  ) {
+    return this.coursesService.closeCourseGrades(code, body.teacherDni);
+  }
+
   @Get(':code')
   findOne(@Param('code') code: string) {
     return this.coursesService.findByCode(code);

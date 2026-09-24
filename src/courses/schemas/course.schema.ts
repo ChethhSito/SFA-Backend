@@ -40,6 +40,15 @@ export class Course {
 
   @Prop({ default: 0 })
   studentCount?: number;
+
+  @Prop({ default: false })
+  isGradesClosed?: boolean;
+
+  @Prop()
+  closedByTeacherDni?: string;
+
+  @Prop()
+  closedAt?: string;
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);

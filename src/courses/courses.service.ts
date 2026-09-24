@@ -105,4 +105,17 @@ export class CoursesService {
     asg.markModified('submissions');
     return asg.save();
   }
+
+  // --- CLOSE GRADES (FIRMA Y CIERRE DE ACTAS DE NOTAS) ---
+  async closeCourseGrades(code: string, teacherDni: string): Promise<CourseDocument> {
+    const course = await this.courseModel.findOne({ code }).exec();
+    if (!course) {
+      throw new NotFoundException(`Curso con código ${code} no encontrado`);
+    }
+    course.isGradesClosed = true;
+    course.closedByTeacherDni = teacherDni;
+    course.closedAt = new Date().toISOString();
+    return course.save();
+  }
 }
+
