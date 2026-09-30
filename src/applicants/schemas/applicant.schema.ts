@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 
 export type ApplicantDocument = Applicant & Document;
 
@@ -74,8 +74,8 @@ export class Applicant {
   @Prop()
   examScore?: number;
 
-  @Prop({ required: true, default: false })
-  admitted: boolean;
+  @Prop({ type: MongooseSchema.Types.Mixed, default: false })
+  admitted: boolean | string;
 
   @Prop({ type: Object })
   docs?: {
