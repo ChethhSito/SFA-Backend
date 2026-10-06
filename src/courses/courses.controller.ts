@@ -3,7 +3,6 @@ import { CoursesService } from './courses.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
 @Controller('courses')
-@UseGuards(AuthGuard)
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
@@ -84,6 +83,7 @@ export class CoursesController {
   }
 
   @Delete(':code')
+  @UseGuards(AuthGuard)
   remove(@Param('code') code: string) {
     return this.coursesService.remove(code);
   }
