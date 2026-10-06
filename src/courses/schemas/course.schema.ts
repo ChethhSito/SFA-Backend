@@ -24,7 +24,19 @@ export class Course {
   teacherDni: string;
 
   @Prop()
+  teacherName?: string;
+
+  @Prop({ type: [{ dni: String, name: String, role: String }], default: [] })
+  teachers?: { dni: string; name: string; role?: string }[];
+
+  @Prop({ type: [String], default: [] })
+  teacherDnis?: string[];
+
+  @Prop()
   career?: string;
+
+  @Prop()
+  careerId?: string;
 
   @Prop()
   group?: string;
