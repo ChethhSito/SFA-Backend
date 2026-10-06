@@ -15,6 +15,7 @@ import { GraduationsModule } from './graduations/graduations.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MailModule } from './mail/mail.module';
 import { MpaModule } from './mpa/mpa.module';
+import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliation.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { MpaModule } from './mpa/mpa.module';
     PaymentsModule,
     MailModule,
     MpaModule,
+    BankReconciliationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

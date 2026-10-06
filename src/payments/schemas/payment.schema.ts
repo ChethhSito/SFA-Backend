@@ -31,6 +31,12 @@ export class Payment {
 
   @Prop()
   notes?: string;
+
+  @Prop({ unique: true, sparse: true })
+  bankOperationKey?: string;
+
+  @Prop()
+  mafObligationId?: string;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);
