@@ -16,7 +16,14 @@ export class EnrollmentsService {
   }
 
   async findAll(): Promise<EnrollmentDocument[]> {
-    return this.enrollmentModel.find().exec();
+    const list = await this.enrollmentModel.find().exec();
+    return list.map((item) => {
+      const doc = item.toObject ? item.toObject() : item;
+      if (doc.shift) {
+        doc.shift = doc.shift.replace(/Ma[\uFFFD\?a-zA-Z]*ana/gi, 'Mañana').replace(/Maana/gi, 'Mañana');
+      }
+      return doc;
+    }) as EnrollmentDocument[];
   }
 
   async findByDni(studentDni: string): Promise<EnrollmentDocument> {
@@ -24,7 +31,11 @@ export class EnrollmentsService {
     if (!enrollment) {
       throw new NotFoundException(`Enrollment for student DNI ${studentDni} not found`);
     }
-    return enrollment;
+    const doc = enrollment.toObject ? enrollment.toObject() : enrollment;
+    if (doc.shift) {
+      doc.shift = doc.shift.replace(/Ma[\uFFFD\?a-zA-Z]*ana/gi, 'Mañana').replace(/Maana/gi, 'Mañana');
+    }
+    return doc as EnrollmentDocument;
   }
 
   async update(studentDni: string, updateEnrollmentDto: any): Promise<EnrollmentDocument> {
