@@ -48,9 +48,12 @@ Tras actualizar el módulo MPA, reinicia el proceso NestJS que atiende el puerto
 ### Configuración de Entorno (`.env`)
 ```env
 PORT=3001
-MONGODB_URI=mongodb://localhost:27017/sfa_database
+HOST=127.0.0.1
+MONGODB_URI=mongodb://127.0.0.1:27017/sfa_database
 BREVO_API_KEY=tu_api_key_brevo
 ```
+
+En Windows, comprueba que el servicio `MongoDB` esté iniciado. Copia `.env.example` a `.env` antes de arrancar la API. La base `sfa_database` se crea al iniciar el backend y registrar sus colecciones. `HOST=127.0.0.1` limita el acceso a este equipo; cámbialo solo si necesitas servir la API en otra interfaz de red.
 
 ### Ejecutar Localmente
 ```bash

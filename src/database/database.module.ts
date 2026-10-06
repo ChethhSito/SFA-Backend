@@ -8,7 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/intranet',
+        uri: configService.get<string>('MONGODB_URI') || 'mongodb://127.0.0.1:27017/sfa_database',
       }),
     }),
   ],
