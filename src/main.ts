@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import * as express from 'express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
@@ -19,6 +20,13 @@ async function bootstrap() {
       forbidNonWhitelisted: false,
     }),
   );
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('SFA API')
+    .setDescription('Documentación de los endpoints del backend SFA')
+    .setVersion('1.0')
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, swaggerDocument);
   const port = process.env.PORT || 3001;
   const host = process.env.HOST || '127.0.0.1';
   await app.listen(port, host);
