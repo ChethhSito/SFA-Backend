@@ -15,7 +15,7 @@ export class AuthService implements OnModuleInit {
     const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
 
     if (!projectId || !clientEmail || !privateKey || privateKey.includes('...')) {
-      console.warn('⚠️ [Firebase Auth] La configuración de Firebase está incompleta o tiene valores ficticios de prueba. Las funciones de autenticación fallarán hasta que configures credenciales reales en intranet-back/.env.');
+      console.warn('[Firebase Auth] La configuración de Firebase está incompleta o tiene valores ficticios de prueba. Las funciones de autenticación fallarán hasta que configures credenciales reales en intranet-back/.env.');
       return;
     }
 
@@ -30,9 +30,9 @@ export class AuthService implements OnModuleInit {
           privateKey: formattedPrivateKey,
         }),
       });
-      console.log('✅ [Firebase Auth] Inicializado correctamente con el proyecto:', projectId);
+      console.log('[Firebase Auth] Inicializado correctamente con el proyecto:', projectId);
     } catch (error: any) {
-      console.error('❌ [Firebase Auth] Error al inicializar Firebase Admin:', error.message);
+      console.error('[Firebase Auth] Error al inicializar Firebase Admin:', error.message);
       console.warn('El servidor backend continuará ejecutándose, pero la validación de tokens de Firebase Auth fallará.');
     }
   }

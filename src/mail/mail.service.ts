@@ -44,7 +44,7 @@ export class MailService {
 
   async sendWelcomeEmail(data: SendWelcomeEmailDto): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!data || !data.email || !data.email.trim()) {
-      this.logger.debug('ℹ️ Solicitud recibida sin dirección de correo electrónico. Se omite el envío transaccional.');
+      this.logger.debug('Solicitud recibida sin dirección de correo electrónico. Se omite el envío transaccional.');
       return { success: false, error: 'Dirección de correo electrónico requerida.' };
     }
 
@@ -54,7 +54,7 @@ export class MailService {
     const templateId = parseInt(rawTemplateId, 10);
 
     if (!apiKey) {
-      this.logger.warn('⚠️ BREVO_API_KEY no configurada. El correo no se enviará de forma real.');
+      this.logger.warn('BREVO_API_KEY no configurada. El correo no se enviará de forma real.');
       return { success: false, error: 'BREVO_API_KEY missing' };
     }
 
@@ -346,14 +346,14 @@ export class MailService {
       const resData = await response.json();
 
       if (response.ok) {
-        this.logger.log(`✅ Correo enviado exitosamente via Brevo API. ID: ${resData.messageId}`);
+        this.logger.log(`Correo enviado exitosamente via Brevo API. ID: ${resData.messageId}`);
         return { success: true, messageId: resData.messageId };
       } else {
-        this.logger.error(`❌ Error respuesta Brevo API (${response.status}): ${JSON.stringify(resData)}`);
+        this.logger.error(`Error respuesta Brevo API (${response.status}): ${JSON.stringify(resData)}`);
         return { success: false, error: resData.message || JSON.stringify(resData) };
       }
     } catch (err: any) {
-      this.logger.error(`❌ Excepción enviando correo via Brevo: ${err.message}`);
+      this.logger.error(`Excepción enviando correo via Brevo: ${err.message}`);
       return { success: false, error: err.message };
     }
   }
