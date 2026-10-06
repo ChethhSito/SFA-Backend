@@ -34,7 +34,7 @@ export interface Applicant {
   paymentObservations?: string;
   examStatus: "No Programado" | "Programado" | "Rindiendo" | "Finalizado";
   examScore?: number;
-  admitted: boolean;
+  admitted: boolean | "PENDIENTE" | "ADMITIDO" | "NO ADMITIDO" | string;
   docs?: {
     dniFile: StudentDoc;
     certificadoFile: StudentDoc;

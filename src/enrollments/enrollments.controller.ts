@@ -3,7 +3,6 @@ import { EnrollmentsService } from './enrollments.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
 @Controller('enrollments')
-@UseGuards(AuthGuard)
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
@@ -28,6 +27,7 @@ export class EnrollmentsController {
   }
 
   @Delete(':studentDni')
+  @UseGuards(AuthGuard)
   remove(@Param('studentDni') studentDni: string) {
     return this.enrollmentsService.remove(studentDni);
   }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Patch, Param, Delete, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApplicantsService } from './applicants.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
@@ -25,8 +25,8 @@ export class ApplicantsController {
     return applicant;
   }
 
+  @Put(':dni')
   @Patch(':dni')
-  @UseGuards(AuthGuard)
   update(@Param('dni') dni: string, @Body() updateApplicantDto: any) {
     return this.applicantsService.update(dni, updateApplicantDto);
   }
