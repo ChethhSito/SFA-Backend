@@ -16,7 +16,17 @@ export class AdmissionPeriodsService {
   }
 
   async findAll(): Promise<AdmissionPeriodDocument[]> {
-    return this.admissionPeriodModel.find().exec();
+    const list = await this.admissionPeriodModel.find().exec();
+    return list.map((item) => {
+      const doc = item.toObject ? item.toObject() : item;
+      if (doc.name) {
+        doc.name = doc.name
+          .replace(/\uFFFD/g, 'é')
+          .replace(/Acad[\uFFFD\?a-zA-Z]*mico/gi, 'Académico')
+          .replace(/Acadmico/gi, 'Académico');
+      }
+      return doc;
+    }) as AdmissionPeriodDocument[];
   }
 
   async findOne(id: string): Promise<AdmissionPeriodDocument> {
@@ -25,7 +35,14 @@ export class AdmissionPeriodsService {
     if (!period) {
       throw new NotFoundException(`AdmissionPeriod with id ${id} not found`);
     }
-    return period;
+    const doc = period.toObject ? period.toObject() : period;
+    if (doc.name) {
+      doc.name = doc.name
+        .replace(/\uFFFD/g, 'é')
+        .replace(/Acad[\uFFFD\?a-zA-Z]*mico/gi, 'Académico')
+        .replace(/Acadmico/gi, 'Académico');
+    }
+    return doc as AdmissionPeriodDocument;
   }
 
   async update(id: string, updateDto: any): Promise<AdmissionPeriodDocument> {
