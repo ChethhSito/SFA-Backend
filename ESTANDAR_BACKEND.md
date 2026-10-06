@@ -12,7 +12,7 @@ El Backend aplica la arquitectura recomendada por **NestJS**, siguiendo el patr�
 
 ## 📐 Estructura Estándar de Módulo NestJS
 
-Cada módulo de dominio (ej. `applicants`, `enrollments`, `payments`, `students`, `courses`, `teachers`, `users`) cumple estrictamente la siguiente jerarquía de 5 capas:
+La estructura de referencia para los módulos CRUD de dominio (ej. `applicants`, `enrollments`, `payments`, `students`, `courses`, `teachers`, `users`) es la siguiente:
 
 ```text
 src/{modulo}/
@@ -45,3 +45,7 @@ graph LR
 1. **DTOs:** Toda entrada de datos debe estar tipada y validada con `class-validator` y `class-transformer`.
 2. **Índices en MongoDB:** Los campos de búsqueda frecuente (`studentDni`, `dni`, `email`, `code`, `date`) deben contar con un índice explícito en el esquema de Mongoose.
 3. **Formato de Commits:** Respetar la regla `[VERBO] + [OBJETO]` en español (`Agrega`, `Implementa`, `Integra`, `Refactoriza`, `Corrige`, `Actualiza`).
+
+## Estado del módulo de conciliación bancaria
+
+`src/bank-reconciliation/` ya separa controlador, servicio, módulo y esquema Mongoose. Como recibe filas de un Excel y una instantánea de obligaciones, valida la estructura de entrada con `parseInput` en el servicio en vez de DTOs con `class-validator`. Es una diferencia respecto de la regla general anterior que debe resolverse antes de exponer la API a otros clientes. Tampoco tiene una guarda de autorización propia; el uso actual es local. Su comportamiento y límites están documentados en [CONCILIACION_BANCARIA.md](CONCILIACION_BANCARIA.md).
