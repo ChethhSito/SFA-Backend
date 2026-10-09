@@ -11,9 +11,11 @@ export class ApplicantsService {
   ) {}
 
   async create(createApplicantDto: any): Promise<ApplicantDocument> {
+    const { _id, id, ...cleanData } = createApplicantDto;
+
     // Auto-generate applicantCode if not provided
-    if (!createApplicantDto.applicantCode) {
-      const periodId = createApplicantDto.periodId || '1';
+    if (!cleanData.applicantCode) {
+      const periodId = cleanData.periodId || '1';
       // Build prefix from periodId (e.g. '2026-I' → '20261', '2026-II' → '20262')
       const yearMatch = periodId.match(/(\d{4})/);
       const year = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
@@ -31,15 +33,20 @@ export class ApplicantsService {
           maxSerial = parsed;
         }
       });
-      const nextSerial = maxSerial + 1;
-      createApplicantDto.applicantCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
+      let nextSerial = maxSerial + 1;
+      let candidateCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
+      while (await this.applicantModel.exists({ applicantCode: candidateCode })) {
+        nextSerial++;
+        candidateCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
+      }
+      cleanData.applicantCode = candidateCode;
     }
 
-    if (!createApplicantDto.registeredAt) {
-      createApplicantDto.registeredAt = new Date().toISOString().split('T')[0];
+    if (!cleanData.registeredAt) {
+      cleanData.registeredAt = new Date().toISOString().split('T')[0];
     }
 
-    const createdApplicant = new this.applicantModel(createApplicantDto);
+    const createdApplicant = new this.applicantModel(cleanData);
     return createdApplicant.save();
   }
 
@@ -58,8 +65,22 @@ export class ApplicantsService {
   }
 
   async update(dni: string, updateApplicantDto: any): Promise<ApplicantDocument> {
+    const { _id, id, ...cleanData } = updateApplicantDto;
+
+    const existing = await this.applicantModel.findOne({ dni }).exec();
+    if (!existing) {
+      throw new NotFoundException(`Applicant with DNI ${dni} not found`);
+    }
+
+    if (cleanData.dni && cleanData.dni === existing.dni) {
+      delete cleanData.dni;
+    }
+    if (existing.applicantCode) {
+      delete cleanData.applicantCode;
+    }
+
     const updated = await this.applicantModel
-      .findOneAndUpdate({ dni }, updateApplicantDto, { new: true })
+      .findOneAndUpdate({ dni }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Applicant with DNI ${dni} not found`);

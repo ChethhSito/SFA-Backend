@@ -46,9 +46,10 @@ export class AdmissionPeriodsService {
   }
 
   async update(id: string, updateDto: any): Promise<AdmissionPeriodDocument> {
+    const { _id, ...cleanData } = updateDto;
     const filter = Types.ObjectId.isValid(id) ? { _id: id } : { id };
     const updated = await this.admissionPeriodModel
-      .findOneAndUpdate(filter, updateDto, { new: true, upsert: true })
+      .findOneAndUpdate(filter, { $set: cleanData }, { returnDocument: 'after', upsert: true })
       .exec();
     return updated;
   }

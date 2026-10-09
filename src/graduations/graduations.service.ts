@@ -28,8 +28,9 @@ export class GraduationsService {
   }
 
   async update(studentDni: string, updateDto: any): Promise<GraduationDocument> {
+    const { _id, id, ...cleanData } = updateDto;
     const updated = await this.graduationModel
-      .findOneAndUpdate({ studentDni }, updateDto, { new: true })
+      .findOneAndUpdate({ studentDni }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Graduation record for DNI ${studentDni} not found`);

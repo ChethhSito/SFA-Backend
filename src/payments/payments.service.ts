@@ -31,12 +31,13 @@ export class PaymentsService {
   }
 
   async update(id: string, updateData: Partial<CreatePaymentDto>): Promise<Payment> {
+    const { _id, ...cleanData } = updateData as any;
     const updated = await this.paymentModel
-      .findOneAndUpdate({ paymentId: id }, updateData, { new: true })
+      .findOneAndUpdate({ paymentId: id }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       const updatedById = await this.paymentModel
-        .findByIdAndUpdate(id, updateData, { new: true })
+        .findByIdAndUpdate(id, { $set: cleanData }, { returnDocument: 'after' })
         .exec();
       if (!updatedById) {
         throw new NotFoundException(`Pago con id "${id}" no encontrado.`);

@@ -37,8 +37,9 @@ export class CoursesService {
   }
 
   async update(code: string, updateCourseDto: any): Promise<CourseDocument> {
+    const { _id, id, ...cleanData } = updateCourseDto;
     const updated = await this.courseModel
-      .findOneAndUpdate({ code }, updateCourseDto, { new: true })
+      .findOneAndUpdate({ code }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Course with code ${code} not found`);
