@@ -5,11 +5,11 @@ export type AdmissionPeriodDocument = AdmissionPeriod & Document;
 
 @Schema({ timestamps: true })
 export class AdmissionPeriod {
-  @Prop()
-  id?: string;
+  @Prop({ required: true, unique: true })
+  id: string;
 
-  @Prop()
-  academicPeriodId?: string;
+  @Prop({ required: true, unique: true })
+  academicPeriodId: string;
 
   @Prop({ required: true })
   name: string;
@@ -17,7 +17,7 @@ export class AdmissionPeriod {
   @Prop({ required: true, default: false })
   isActive: boolean;
 
-  @Prop({ required: true, default: 'PENDIENTE' })
+  @Prop({ required: true, default: 'PENDIENTE', enum: ['PENDIENTE', 'APERTURADO', 'EXAMEN', 'MATRICULA', 'CERRADO'] })
   status: string;
 
   @Prop({ required: true })
@@ -30,6 +30,9 @@ export class AdmissionPeriod {
   admissionDate: string;
 
   @Prop({ required: true })
+  resultsPublicationDate: string;
+
+  @Prop({ required: true })
   enrollmentStartDate: string;
 
   @Prop({ required: true })
@@ -40,3 +43,4 @@ export class AdmissionPeriod {
 }
 
 export const AdmissionPeriodSchema = SchemaFactory.createForClass(AdmissionPeriod);
+AdmissionPeriodSchema.index({ status: 1 }, { unique: true, partialFilterExpression: { status: 'APERTURADO' } });

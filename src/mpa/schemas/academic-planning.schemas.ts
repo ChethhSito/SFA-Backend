@@ -10,7 +10,9 @@ export class AcademicPeriod {
   @Prop({ enum: ['Planificación', 'Activo', 'Cerrado'] }) status?: string;
 }
 export const AcademicPeriodSchema = SchemaFactory.createForClass(AcademicPeriod);
-AcademicPeriodSchema.index({ isActive: 1 });
+AcademicPeriodSchema.index({ isActive: 1 }, {
+  name: 'one_active_academic_period', unique: true, partialFilterExpression: { isActive: true },
+});
 
 @Schema({ collection: 'careers', timestamps: true })
 export class AcademicProgram {

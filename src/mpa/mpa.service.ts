@@ -66,6 +66,11 @@ export class MpaService implements OnModuleInit {
   private async replace(kind: MpaKind, items: Record<string, unknown>[]) {
     const model = this.model(kind);
     const key = kind === 'teachers' ? 'dni' : 'id';
+    // The active-period index also protects against concurrent requests. Release the
+    // previous active record before writing the newly selected one.
+    if (kind === 'periods' && items.some(item => item.isActive === true)) {
+      await model.updateMany({ isActive: true }, { $set: { isActive: false, status: 'Planificación' } }).exec();
+    }
     if (items.length) {
       await model.bulkWrite(items.map(item => ({ updateOne: {
         filter: { [key]: item[key] }, update: { $set: item }, upsert: true,
@@ -87,10 +92,49 @@ export class MpaService implements OnModuleInit {
       try { await new (this.model(kind))(item).validate(); }
       catch (error) { throw new BadRequestException(`Registro ${id} inválido: ${error instanceof Error ? error.message : String(error)}`); }
     }
+    if (kind === 'periods') {
+      const active = items.filter(item => item.isActive === true || item.status === 'Activo');
+      if (active.length > 1) throw new BadRequestException('Solo puede existir un período académico activo');
+      const names = new Set<string>();
+      for (const period of items) {
+        if (typeof period.name !== 'string' || !period.name.trim()) throw new BadRequestException('El período requiere nombre');
+        const name = period.name.trim().toLocaleLowerCase('es');
+        if (names.has(name)) throw new BadRequestException(`Período académico duplicado: ${period.name}`);
+        names.add(name);
+        if (!this.validDate(period.startDate) || !this.validDate(period.endDate) || (period.startDate as string) >= (period.endDate as string)) {
+          throw new BadRequestException(`Fechas inválidas para el período ${period.name}`);
+        }
+        if ((period.status === 'Activo') !== (period.isActive === true)) {
+          throw new BadRequestException(`Estado e indicador activo no coinciden para ${period.name}`);
+        }
+      }
+      const existing = await this.model('periods').find().lean().exec() as unknown as Array<{ id: string }>;
+      const removedIds = existing.map(period => period.id).filter(id => !ids.has(id));
+      if (removedIds.length) {
+        const [group, admission] = await Promise.all([
+          this.model('groups').findOne({ periodId: { $in: removedIds } }).lean().exec(),
+          this.connection.collection('admissionperiods').findOne({ academicPeriodId: { $in: removedIds } }),
+        ]);
+        if (group || admission) throw new BadRequestException('No se puede eliminar un período con grupos o convocatorias de admisión vinculados');
+      }
+      const closedIds = items.filter(period => period.status === 'Cerrado').map(period => period.id as string);
+      if (closedIds.length) {
+        const openAdmission = await this.connection.collection('admissionperiods').findOne({
+          academicPeriodId: { $in: closedIds }, status: 'APERTURADO',
+        });
+        if (openAdmission) throw new BadRequestException('Cierre la convocatoria de admisión antes de cerrar su período académico');
+      }
+    }
     if (kind === 'tasks') {
       const groups = await this.model('groups').find().lean().exec();
       this.validateTasks(items, groups);
     }
+  }
+
+  private validDate(value: unknown): value is string {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
   }
 
   private validateTasks(items: Record<string, unknown>[], groups: Record<string, unknown>[]) {

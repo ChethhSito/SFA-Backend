@@ -3,10 +3,16 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AdmissionPeriodsService } from './admission-periods.service';
 import { AdmissionPeriodsController } from './admission-periods.controller';
 import { AdmissionPeriod, AdmissionPeriodSchema } from './schemas/admission-period.schema';
+import { AcademicPeriod, AcademicPeriodSchema } from '../mpa/schemas/academic-planning.schemas';
+import { Applicant, ApplicantSchema } from '../applicants/schemas/applicant.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: AdmissionPeriod.name, schema: AdmissionPeriodSchema }]),
+    MongooseModule.forFeature([
+      { name: AdmissionPeriod.name, schema: AdmissionPeriodSchema },
+      { name: AcademicPeriod.name, schema: AcademicPeriodSchema },
+      { name: Applicant.name, schema: ApplicantSchema },
+    ]),
   ],
   controllers: [AdmissionPeriodsController],
   providers: [AdmissionPeriodsService],
