@@ -49,10 +49,11 @@ export class AdmissionPeriodsService {
       throw new BadRequestException('No se puede cambiar el período académico vinculado');
     }
     const { _id, __v, createdAt, updatedAt, ...current } = existing.toObject();
-    const data = await this.prepare({ ...current, ...updateDto, id: existing.id }, existing.id);
+    const { _id: ignoredId, ...cleanUpdate } = updateDto;
+    const data = await this.prepare({ ...current, ...cleanUpdate, id: existing.id }, existing.id);
     try {
       const updated = await this.admissionPeriodModel.findOneAndUpdate(
-        { _id: existing._id }, data, { returnDocument: 'after', runValidators: true },
+        { _id: existing._id }, { $set: data }, { returnDocument: 'after', runValidators: true },
       ).exec();
       if (!updated) throw new NotFoundException(`Período de admisión ${id} no encontrado`);
       return updated;

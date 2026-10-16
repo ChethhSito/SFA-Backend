@@ -29,8 +29,10 @@ export class ApplicantsService {
     if (today < period.preEnrollmentStartDate || today > period.preEnrollmentEndDate) {
       throw new BadRequestException('La convocatoria no está dentro de sus fechas de preinscripción');
     }
+    const { _id, id, ...cleanData } = createApplicantDto;
+
     // Auto-generate applicantCode if not provided
-    if (!createApplicantDto.applicantCode) {
+    if (!cleanData.applicantCode) {
       const periodName = period.name;
       const yearMatch = periodName.match(/(\d{4})/);
       const year = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
@@ -48,15 +50,20 @@ export class ApplicantsService {
           maxSerial = parsed;
         }
       });
-      const nextSerial = maxSerial + 1;
-      createApplicantDto.applicantCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
+      let nextSerial = maxSerial + 1;
+      let candidateCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
+      while (await this.applicantModel.exists({ applicantCode: candidateCode })) {
+        nextSerial++;
+        candidateCode = `${prefix}${String(nextSerial).padStart(4, '0')}`;
+      }
+      cleanData.applicantCode = candidateCode;
     }
 
-    if (!createApplicantDto.registeredAt) {
-      createApplicantDto.registeredAt = new Date().toISOString().split('T')[0];
+    if (!cleanData.registeredAt) {
+      cleanData.registeredAt = new Date().toISOString().split('T')[0];
     }
 
-    const createdApplicant = new this.applicantModel(createApplicantDto);
+    const createdApplicant = new this.applicantModel(cleanData);
     return createdApplicant.save();
   }
 
@@ -75,15 +82,26 @@ export class ApplicantsService {
   }
 
   async update(dni: string, updateApplicantDto: any): Promise<ApplicantDocument> {
-    if (updateApplicantDto.periodId !== undefined) {
-      const existing = await this.applicantModel.findOne({ dni }).exec();
-      if (!existing) throw new NotFoundException(`Applicant with DNI ${dni} not found`);
-      if (updateApplicantDto.periodId !== existing.periodId) {
-        throw new BadRequestException('No se puede trasladar un postulante a otra convocatoria');
-      }
+    const { _id, id, ...cleanData } = updateApplicantDto;
+
+    const existing = await this.applicantModel.findOne({ dni }).exec();
+    if (!existing) {
+      throw new NotFoundException(`Applicant with DNI ${dni} not found`);
     }
+
+    if (cleanData.periodId !== undefined && cleanData.periodId !== existing.periodId) {
+      throw new BadRequestException('No se puede trasladar un postulante a otra convocatoria');
+    }
+
+    if (cleanData.dni && cleanData.dni === existing.dni) {
+      delete cleanData.dni;
+    }
+    if (existing.applicantCode) {
+      delete cleanData.applicantCode;
+    }
+
     const updated = await this.applicantModel
-      .findOneAndUpdate({ dni }, updateApplicantDto, { new: true })
+      .findOneAndUpdate({ dni }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Applicant with DNI ${dni} not found`);

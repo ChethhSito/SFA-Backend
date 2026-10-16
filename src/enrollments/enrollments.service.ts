@@ -39,8 +39,9 @@ export class EnrollmentsService {
   }
 
   async update(studentDni: string, updateEnrollmentDto: any): Promise<EnrollmentDocument> {
+    const { _id, id, ...cleanData } = updateEnrollmentDto;
     const updated = await this.enrollmentModel
-      .findOneAndUpdate({ studentDni }, updateEnrollmentDto, { new: true })
+      .findOneAndUpdate({ studentDni }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Enrollment for student DNI ${studentDni} not found`);

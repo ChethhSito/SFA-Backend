@@ -174,11 +174,12 @@ export class UsersService implements OnModuleInit {
   }
 
   async update(id: string, updateDto: UpdateUserDto): Promise<UserDocument> {
+    const { _id, ...cleanData } = updateDto as any;
     const updated = await this.userModel
       .findOneAndUpdate(
         { $or: [{ _id: id }, { id: id }, { dni: id }] },
-        updateDto,
-        { new: true, upsert: true }
+        { $set: cleanData },
+        { returnDocument: 'after', upsert: true }
       )
       .exec();
     return updated;

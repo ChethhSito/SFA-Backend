@@ -28,8 +28,9 @@ export class TeachersService {
   }
 
   async update(dni: string, updateTeacherDto: any): Promise<TeacherDocument> {
+    const { _id, id, ...cleanData } = updateTeacherDto;
     const updated = await this.teacherModel
-      .findOneAndUpdate({ dni }, updateTeacherDto, { new: true })
+      .findOneAndUpdate({ dni }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Teacher with DNI ${dni} not found`);

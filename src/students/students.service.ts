@@ -38,15 +38,16 @@ export class StudentsService {
   }
 
   async updatePersonalData(dni: string, dto: UpdateStudentPersonalDto): Promise<Student> {
+    const { _id, id, ...cleanDto } = dto as any;
     const updated = await this.studentModel
-      .findOneAndUpdate({ dni }, { $set: dto }, { new: true, upsert: true })
+      .findOneAndUpdate({ dni }, { $set: cleanDto }, { returnDocument: 'after', upsert: true })
       .exec();
     return updated;
   }
 
   async updateCycleStatuses(dni: string, cycleStatuses: any[]): Promise<Student> {
     const updated = await this.studentModel
-      .findOneAndUpdate({ dni }, { $set: { cycleStatuses } }, { new: true })
+      .findOneAndUpdate({ dni }, { $set: { cycleStatuses } }, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Estudiante con DNI ${dni} no encontrado.`);
