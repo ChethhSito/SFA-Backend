@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { beforeEach, describe, it } from 'node:test';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -21,7 +20,4 @@ describe('AppController', () => {
     });
   });
 });
-function expect(arg0: string) {
-  throw new Error('Function not implemented.');
-}
 
