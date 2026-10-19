@@ -11,6 +11,9 @@ export class Attendance {
   @Prop({ required: true })
   date: string;
 
+  @Prop({ min: 1, max: 52 })
+  week?: number;
+
   @Prop({ type: Object, default: {} })
   statusMap: Record<string, string>;
 }

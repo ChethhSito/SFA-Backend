@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Student, StudentDocument } from '../students/schemas/student.schema';
 import { Enrollment, EnrollmentDocument } from '../enrollments/schemas/enrollment.schema';
+import { Attendance, AttendanceDocument } from '../courses/schemas/attendance.schema';
+import { CourseAssignment, CourseAssignmentDocument } from '../courses/schemas/course-assignment.schema';
+import { AcademicProgram } from '../mpa/schemas/academic-planning.schemas';
+import { mergeAttendanceRecords, normalizeAttendanceDate } from '../courses/attendance.utils';
+import { TutoringReferral, TutoringReferralDocument } from './schemas/tutoring-referral.schema';
 
 export interface StudentRiskAssessment {
   studentDni: string;
@@ -10,189 +15,194 @@ export interface StudentRiskAssessment {
   career: string;
   cycle: string;
   shift: string;
-  riskScore: number; // 0.00 a 1.00
-  riskLevel: 'CRITICO' | 'MODERADO' | 'BAJO';
+  riskScore: number | null;
+  riskLevel: 'CRITICO' | 'MODERADO' | 'BAJO' | 'SIN_DATOS';
   primaryCause: string;
   recommendation: string;
   metrics: {
-    attendanceRate: number; // 0 a 100
-    currentGpa: number; // 0 a 20
-    homeworkCompletion: number; // 0 a 100
-    hasOverduePayment: boolean;
+    attendanceRate: number | null;
+    currentGpa: number | null;
+    homeworkCompletion: number | null;
+    hasOverduePayment: boolean | null;
   };
   referredToTutoring?: boolean;
 }
-
 export interface AnalyticsKpis {
   totalEvaluated: number;
-  retentionRate: number; // %
+  totalStudents: number;
+  insufficientDataCount: number;
+  retentionRate: number | null;
   criticalCount: number;
   moderateCount: number;
   lowRiskCount: number;
 }
-
 export interface AttritionRiskReport {
   kpis: AnalyticsKpis;
   students: StudentRiskAssessment[];
   timestamp: string;
 }
+const round = (value: number) => Number(value.toFixed(2));
+const validGrade = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 20;
 
 @Injectable()
 export class AnalyticsService {
-  private tutoringReferrals = new Set<string>();
-
   constructor(
     @InjectModel(Student.name) private studentModel: Model<StudentDocument>,
     @InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>,
+    @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(CourseAssignment.name) private assignmentModel: Model<CourseAssignmentDocument>,
+    @InjectModel(AcademicProgram.name) private programModel: Model<AcademicProgram>,
+    @InjectModel(TutoringReferral.name) private referralModel: Model<TutoringReferralDocument>,
   ) {}
 
   async calculateAttritionRisk(): Promise<AttritionRiskReport> {
-    const students = await this.studentModel.find().lean().exec();
-    const enrollments = await this.enrollmentModel.find().lean().exec();
-
-    // Map enrollments by studentDni for fast O(1) lookups
-    const enrollMap = new Map<string, any>();
-    enrollments.forEach((enr) => {
-      if (enr.studentDni) {
-        enrollMap.set(enr.studentDni, enr);
+    const [students, enrollments, attendance, assignments, programs, referrals] = await Promise.all([
+      this.studentModel.find().lean().exec(), this.enrollmentModel.find().lean().exec(),
+      this.attendanceModel.find().lean().exec(), this.assignmentModel.find().lean().exec(),
+      this.programModel.find().lean().exec(),
+      this.referralModel.find().lean().exec(),
+    ]);
+    const referredDnis = new Set(referrals.map((referral) => referral.studentDni));
+    const enrollMap = new Map(enrollments.map((enr) => [enr.studentDni, enr]));
+    const programMap = new Map(programs.map((program) => [program.id, program.name]));
+    const dailyAttendance = mergeAttendanceRecords(attendance);
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+    const assessed: StudentRiskAssessment[] = students.filter((student) => student.active !== false).map((student) => {
+      const enrollment = enrollMap.get(student.dni);
+      // Only explicit entries establish membership. Missing keys are not absences.
+      const records = dailyAttendance.filter((record) => normalizeAttendanceDate(record.date) && record.date <= today &&
+        ['Presente', 'Tardanza', 'Falta', 'Justificado'].includes(record.statusMap?.[student.dni]));
+      const attended = records.filter((record) => record.statusMap[student.dni] !== 'Falta').length;
+      const attendanceRate = records.length ? round(attended / records.length * 100) : null;
+      const courseIds = new Set(records.map((record) => record.courseId));
+      // There is no per-student course roster: use observed classroom membership,
+      // never all assignments from a career or another classroom.
+      const dueAssignments = assignments.filter((assignment) => courseIds.has(assignment.courseId) &&
+        assignment.kind !== 'assessment' &&
+        assignment.description !== 'Registro de notas consolidado por administración' &&
+        /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(assignment.dueDate) && assignment.dueDate.slice(0, 10) < today);
+      const delivered = dueAssignments.filter((assignment) => assignment.submissions.some((submission) =>
+        submission.studentDni === student.dni && !!submission.fileName && !!submission.submitDate &&
+        submission.submitDate.slice(0, 10) <= today));
+      const homeworkCompletion = dueAssignments.length ? round(delivered.length / dueAssignments.length * 100) : null;
+      // Submission grades distinguish a recorded zero from default zeros in cycle summaries.
+      const grades = assignments.flatMap((assignment) => assignment.submissions.filter((submission) =>
+        submission.studentDni === student.dni && !!submission.submitDate &&
+        submission.submitDate.slice(0, 10) <= today && validGrade(submission.grade))
+        .map((submission) => submission.grade as number));
+      const gpa = grades.length ? round(grades.reduce((sum, grade) => sum + grade, 0) / grades.length) : null;
+      const paymentStatus = enrollment?.paymentStatus;
+      // Payment status alone cannot establish arrears without a due date.
+      const hasOverduePayment = null;
+      const shift = enrollment?.shift || 'Sin turno registrado';
+      const latestCycle = [...(student.cycleStatuses || [])].sort((a, b) =>
+        b.year - a.year || b.cycleNumber - a.cycleNumber)[0];
+      let riskScore: number | null = null;
+      let riskLevel: StudentRiskAssessment['riskLevel'] = 'SIN_DATOS';
+      let primaryCause = 'Información académica insuficiente para calcular el riesgo.';
+      let recommendation = 'Complete los registros de asistencia, calificaciones y entregas para evaluar al estudiante.';
+      const paymentKnown = ['Pendiente', 'No Pagado', 'Observado', 'Pagado', 'Validado'].includes(paymentStatus || '');
+      const shiftKnown = ['Mañana', 'Tarde', 'Noche'].includes(shift);
+      // Existing heuristic weights; score only when every input is available.
+      if (attendanceRate !== null && gpa !== null && homeworkCompletion !== null && paymentKnown && shiftKnown) {
+        const paymentFactor = paymentStatus === 'Validado' || paymentStatus === 'Pagado' ? 0 : 0.8;
+        const shiftFactor = shift === 'Noche' ? 0.6 : shift === 'Tarde' ? 0.3 : 0.1;
+        riskScore = round((100 - attendanceRate) / 100 * 0.35 + (20 - gpa) / 20 * 0.30 +
+          (100 - homeworkCompletion) / 100 * 0.15 + paymentFactor * 0.10 + shiftFactor * 0.10);
+        riskLevel = riskScore >= 0.65 || attendanceRate < 72 || gpa < 10.5 ? 'CRITICO'
+          : riskScore >= 0.36 || attendanceRate < 82 || gpa < 12.5 ? 'MODERADO' : 'BAJO';
+        primaryCause = `Asistencia registrada: ${attendanceRate}%. Promedio de calificaciones registradas: ${gpa}/20. Entregas: ${homeworkCompletion}%.`;
+        recommendation = riskLevel === 'CRITICO' ? 'Revisar el caso con tutoría académica.'
+          : riskLevel === 'MODERADO' ? 'Realizar seguimiento académico preventivo.' : 'Continuar el seguimiento académico regular.';
       }
-    });
-
-    const evaluatedStudents: StudentRiskAssessment[] = students.map((std, index) => {
-      const enr = enrollMap.get(std.dni) || {};
-      const career =
-        enr.programId === 'contabilidad'
-          ? 'Contabilidad Financiera'
-          : 'Electricidad Industrial';
-      const shift = enr.shift || (std as any).shift || 'Mañana';
-      const cycle = 'Ciclo I';
-
-      // 1. Calculate GPA from cycleStatuses if available, or generate consistent score
-      let gpa = 14.5;
-      if (std.cycleStatuses && std.cycleStatuses.length > 0) {
-        const lastCycle = std.cycleStatuses[std.cycleStatuses.length - 1];
-        if (typeof lastCycle.average === 'number' && lastCycle.average > 0) {
-          gpa = lastCycle.average;
-        } else if (lastCycle.courses && lastCycle.courses.length > 0) {
-          const sum = lastCycle.courses.reduce((acc, c) => acc + (c.grade || 0), 0);
-          gpa = Number((sum / lastCycle.courses.length).toFixed(1));
-        }
-      } else {
-        // Derive stable mock/real seed based on DNI digits to maintain consistency across reloads
-        const dniSeed = parseInt(std.dni.slice(-2) || '15', 10);
-        if (dniSeed % 7 === 0) gpa = 8.5; // Case critical
-        else if (dniSeed % 5 === 0) gpa = 11.2; // Case moderate
-        else gpa = Number((13.5 + (dniSeed % 6) * 1.1).toFixed(1));
-      }
-
-      // 2. Attendance rate: MINEDU rule (>30% absence = DPI inhabilitation)
-      const dniNum = parseInt(std.dni.slice(-3) || '100', 10);
-      let attendanceRate = 92;
-      if (dniNum % 9 === 0) attendanceRate = 68; // High absence (32% absence -> DPI)
-      else if (dniNum % 4 === 0) attendanceRate = 79; // Moderate
-      else attendanceRate = Math.min(100, 88 + (dniNum % 12));
-
-      // 3. Homework / Virtual Classroom completion
-      let homeworkCompletion = Math.min(100, Math.round(attendanceRate * 0.95 + (gpa > 13 ? 10 : -15)));
-      if (homeworkCompletion < 30) homeworkCompletion = 35;
-
-      // 4. Overdue payment flag
-      const hasOverduePayment = enr.paymentStatus === 'Pendiente' || enr.paymentStatus === 'No Pagado';
-
-      // --- ALGORITMO PREDICTIVO XAI (EXPLAINABLE MACHINE LEARNING) ---
-      // Pesos normalizados: Inasistencia (35%), Notas (30%), Tareas (15%), Pagos (10%), Turno (10%)
-      const absenceFactor = (100 - attendanceRate) / 100; // 0 a 1
-      const gpaFactor = Math.max(0, (20 - gpa) / 20); // Menor nota = mayor riesgo
-      const homeworkFactor = (100 - homeworkCompletion) / 100;
-      const paymentFactor = hasOverduePayment ? 0.8 : 0.0;
-      const shiftFactor = shift === 'Noche' ? 0.6 : shift === 'Tarde' ? 0.3 : 0.1;
-
-      const rawRiskScore =
-        absenceFactor * 0.35 +
-        gpaFactor * 0.30 +
-        homeworkFactor * 0.15 +
-        paymentFactor * 0.10 +
-        shiftFactor * 0.10;
-
-      const riskScore = Number(Math.min(0.98, Math.max(0.08, rawRiskScore)).toFixed(2));
-
-      let riskLevel: 'CRITICO' | 'MODERADO' | 'BAJO' = 'BAJO';
-      let primaryCause = 'Rendimiento académico favorable y asistencia continua.';
-      let recommendation = 'Continuar con el plan de estudios regular.';
-
-      if (riskScore >= 0.65 || attendanceRate < 72 || gpa < 10.5) {
-        riskLevel = 'CRITICO';
-        if (attendanceRate < 72) {
-          primaryCause = `Inasistencias acumuladas (${100 - attendanceRate}% faltas). Próximo a inhabilitación por DPI (MINEDU).`;
-          recommendation = 'Citación urgente a tutoría y verificación de justificaciones médicas/laborales.';
-        } else if (gpa < 10.5) {
-          primaryCause = `Promedio desaprobatorio crítico (${gpa} de 20 en evaluaciones continuas).`;
-          recommendation = 'Derivar a reforzamiento académico y asesoría docente personalizada.';
-        } else {
-          primaryCause = 'Riesgo multifactorial: bajo cumplimiento de tareas y retraso administrativo.';
-          recommendation = 'Entrevista presencial con consejería estudiantil.';
-        }
-      } else if (riskScore >= 0.36 || attendanceRate < 82 || gpa < 12.5) {
-        riskLevel = 'MODERADO';
-        if (gpa < 12.5) {
-          primaryCause = `Promedio por debajo del umbral de seguridad (${gpa} de 20).`;
-          recommendation = 'Seguimiento por el docente tutor en próximas prácticas calificadas.';
-        } else {
-          primaryCause = `Inasistencias intermitentes (${100 - attendanceRate}% faltas registradas).`;
-          recommendation = 'Emitir notificación de alerta preventiva a través de la Intranet.';
-        }
-      }
-
       return {
-        studentDni: std.dni,
-        studentName: `${std.name} ${std.lastName}`.trim(),
-        career,
-        cycle,
-        shift,
-        riskScore,
-        riskLevel,
-        primaryCause,
-        recommendation,
-        metrics: {
-          attendanceRate,
-          currentGpa: gpa,
-          homeworkCompletion,
-          hasOverduePayment,
-        },
-        referredToTutoring: this.tutoringReferrals.has(std.dni),
+        studentDni: student.dni, studentName: `${student.name} ${student.lastName}`.trim(),
+        career: enrollment ? programMap.get(enrollment.programId) || enrollment.programId : 'Sin carrera registrada',
+        cycle: latestCycle ? `Ciclo ${latestCycle.cycleNumber} (${latestCycle.year})` : 'Sin ciclo registrado',
+        shift, riskScore, riskLevel, primaryCause, recommendation,
+        metrics: { attendanceRate, currentGpa: gpa, homeworkCompletion, hasOverduePayment },
+        referredToTutoring: referredDnis.has(student.dni),
       };
     });
-
-    // Compute Global KPIs
-    const totalEvaluated = evaluatedStudents.length;
-    const criticalCount = evaluatedStudents.filter((s) => s.riskLevel === 'CRITICO').length;
-    const moderateCount = evaluatedStudents.filter((s) => s.riskLevel === 'MODERADO').length;
-    const lowRiskCount = evaluatedStudents.filter((s) => s.riskLevel === 'BAJO').length;
-    const retentionRate =
-      totalEvaluated > 0
-        ? Number((((totalEvaluated - criticalCount) / totalEvaluated) * 100).toFixed(1))
-        : 100;
-
+    const totalEvaluated = assessed.filter((student) => student.riskLevel !== 'SIN_DATOS').length;
+    const criticalCount = assessed.filter((student) => student.riskLevel === 'CRITICO').length;
     return {
       kpis: {
-        totalEvaluated,
-        retentionRate,
-        criticalCount,
-        moderateCount,
-        lowRiskCount,
+        totalStudents: assessed.length, totalEvaluated, insufficientDataCount: assessed.length - totalEvaluated,
+        retentionRate: totalEvaluated ? round((totalEvaluated - criticalCount) / totalEvaluated * 100) : null,
+        criticalCount, moderateCount: assessed.filter((student) => student.riskLevel === 'MODERADO').length,
+        lowRiskCount: assessed.filter((student) => student.riskLevel === 'BAJO').length,
       },
-      students: evaluatedStudents,
-      timestamp: new Date().toISOString(),
+      students: assessed, timestamp: new Date().toISOString(),
     };
   }
+  private validateDni(studentDni: unknown): asserts studentDni is string {
+    if (typeof studentDni !== 'string' || !/^\d{8}$/.test(studentDni)) {
+      throw new BadRequestException('El DNI debe tener 8 dígitos.');
+    }
+  }
 
-  referStudentToTutoring(studentDni: string, reason?: string) {
-    this.tutoringReferrals.add(studentDni);
-    return {
-      success: true,
-      studentDni,
-      message: 'Estudiante derivado exitosamente al área de Consejería y Tutoría Académica.',
-      timestamp: new Date().toISOString(),
-    };
+  listTutoringReferrals() {
+    return this.referralModel.find().sort({ registeredAt: -1 }).lean().exec();
+  }
+
+  async referStudentToTutoring(studentDni: string, reason?: string) {
+    this.validateDni(studentDni);
+    if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 2000) {
+      throw new BadRequestException('Ingrese un motivo de hasta 2000 caracteres.');
+    }
+    const student = await this.studentModel.findOne({ dni: studentDni }).lean().exec();
+    if (!student) throw new NotFoundException('Estudiante no encontrado.');
+    const initial = { studentDni, studentName: `${student.name} ${student.lastName}`.trim(),
+      reason: reason.trim(), registeredAt: new Date(), readAt: null };
+    let referral;
+    try {
+      referral = await this.referralModel.findOneAndUpdate({ studentDni }, { $setOnInsert: initial },
+        { upsert: true, returnDocument: 'after', runValidators: true }).lean().exec();
+    } catch (error) {
+      // Concurrent submissions converge on the unique student notification.
+      if ((error as { code?: number }).code !== 11000) throw error;
+      referral = await this.referralModel.findOne({ studentDni }).lean().exec();
+    }
+    if (!referral) throw new NotFoundException('No se pudo recuperar la derivación.');
+    return { success: true, studentDni, referral,
+      message: 'Derivación guardada. Aviso disponible en la bandeja de MGE.' };
+  }
+
+  async markTutoringReferralRead(studentDni: string) {
+    this.validateDni(studentDni);
+    const existing = await this.referralModel.findOne({ studentDni }).lean().exec();
+    if (!existing) throw new NotFoundException('Derivación no encontrada.');
+    if (existing.readAt) return existing;
+    return this.referralModel.findOneAndUpdate({ studentDni, readAt: null }, { $set: { readAt: new Date() } },
+      { returnDocument: 'after' }).lean().exec()
+      .then(async (record) => record || this.referralModel.findOne({ studentDni }).lean().exec());
+  }
+
+  async updateTutoringCase(studentDni: string, body: { status: string; responsible: string; note: string; revision: number }) {
+    this.validateDni(studentDni);
+    const statuses = ['PENDIENTE', 'EN_ATENCION', 'CERRADO'];
+    if (!body || !statuses.includes(body.status) || typeof body.note !== 'string' || !body.note.trim() || body.note.trim().length > 2000 ||
+      typeof body.responsible !== 'string' || body.responsible.trim().length > 150 || !Number.isInteger(body.revision) || body.revision < 0) {
+      throw new BadRequestException('Ingrese un estado, responsable y observación válidos.');
+    }
+    if (body.status !== 'PENDIENTE' && !body.responsible.trim()) throw new BadRequestException('Asigne un responsable antes de atender o cerrar el caso.');
+    const current = await this.referralModel.findOne({ studentDni }).lean().exec();
+    if (!current) throw new NotFoundException('Derivación no encontrada.');
+    const status = current.status || 'PENDIENTE';
+    if (status === 'PENDIENTE' && body.status === 'CERRADO') throw new BadRequestException('Inicie la atención antes de cerrar el caso.');
+    if (status === 'CERRADO' && body.status === 'CERRADO') throw new BadRequestException('Reabra el caso antes de agregar seguimiento.');
+    const date = new Date();
+    const revisionFilter = body.revision === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision: body.revision };
+    const saved = await this.referralModel.findOneAndUpdate({ studentDni, ...revisionFilter }, {
+      $set: { status: body.status, responsible: body.responsible.trim(), closedAt: body.status === 'CERRADO' ? date : null },
+      $inc: { revision: 1 },
+      $push: { history: { status: body.status, note: body.note.trim(), responsible: body.responsible.trim(), date } },
+    }, { returnDocument: 'after', runValidators: true }).lean().exec();
+    if (!saved) throw new ConflictException('El caso cambió en otra sesión. Actualice la bandeja antes de guardar.');
+    return saved;
   }
 }

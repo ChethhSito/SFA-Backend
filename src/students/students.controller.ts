@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { UpdateStudentPersonalDto } from './dto/update-student-personal.dto';
 import { Student } from './schemas/student.schema';
@@ -15,6 +15,11 @@ export class StudentsController {
   @Get(':dni')
   async findByDni(@Param('dni') dni: string): Promise<Student> {
     return this.studentsService.findByDni(dni);
+  }
+
+  @Patch(':dni/status')
+  setActive(@Param('dni') dni: string, @Body() body: { active: boolean; reason?: string }) {
+    return this.studentsService.setActive(dni, body.active, body.reason);
   }
 
   @Post()

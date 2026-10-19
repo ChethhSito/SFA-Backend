@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Student, StudentDocument } from './schemas/student.schema';
@@ -13,6 +13,22 @@ export class StudentsService {
 
   async findAll(): Promise<Student[]> {
     return this.studentModel.find().exec();
+  }
+
+  async setActive(dni: string, active: boolean, reason?: string): Promise<Student> {
+    if (!/^\d{8}$/.test(dni) || typeof active !== 'boolean') {
+      throw new BadRequestException('DNI o estado inválido.');
+    }
+    if (!active && (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 1000)) {
+      throw new BadRequestException('Ingrese el motivo de la baja (máximo 1000 caracteres).');
+    }
+    const changes = active ? { active: true, reactivatedAt: new Date() }
+      : { active: false, deactivatedAt: new Date(), deactivationReason: reason!.trim() };
+    const updated = await this.studentModel.findOneAndUpdate(
+      { dni, active: active ? false : { $ne: false } }, { $set: changes }, { returnDocument: 'after', runValidators: true },
+    ).exec();
+    // Repeated requests retain the original date and reason.
+    return updated || this.findByDni(dni);
   }
 
   async findByDni(dni: string): Promise<Student> {

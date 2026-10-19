@@ -17,6 +17,11 @@ export class CoursesController {
   }
 
   // --- ATTENDANCE ENDPOINTS ---
+  @Get('attendance/list')
+  getAllAttendance() {
+    return this.coursesService.getAttendance();
+  }
+
   @Get('attendance/:courseId')
   getAttendance(@Param('courseId') courseId: string) {
     return this.coursesService.getAttendance(courseId);
@@ -25,9 +30,9 @@ export class CoursesController {
   @Post('attendance/:courseId')
   saveAttendance(
     @Param('courseId') courseId: string,
-    @Body() body: { date: string; statusMap: Record<string, string> },
+    @Body() body: { date: string; statusMap: Record<string, string>; week?: number },
   ) {
-    return this.coursesService.saveAttendance(courseId, body.date, body.statusMap);
+    return this.coursesService.saveAttendance(courseId, body.date, body.statusMap, body.week);
   }
 
   // --- MATERIALS ENDPOINTS ---
@@ -54,6 +59,17 @@ export class CoursesController {
     @Body() body: { courseId: string; title: string; description: string; dueDate: string },
   ) {
     return this.coursesService.saveAssignment(body);
+  }
+
+  @Patch('assignments/:id')
+  updateAssignment(@Param('id') id: string, @Body() body: any) {
+    return this.coursesService.updateAssignment(id, body);
+  }
+
+  @Delete('assignments/:id')
+  @UseGuards(AuthGuard)
+  deleteAssignment(@Param('id') id: string) {
+    return this.coursesService.deleteAssignment(id);
   }
 
   @Post('assignments/:id/submit')

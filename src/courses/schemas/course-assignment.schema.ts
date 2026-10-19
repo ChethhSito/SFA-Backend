@@ -5,6 +5,9 @@ export type CourseAssignmentDocument = CourseAssignment & Document;
 
 @Schema({ timestamps: true })
 export class CourseAssignment {
+  @Prop({ enum: ['assignment', 'assessment'], default: 'assignment' })
+  kind?: 'assignment' | 'assessment';
+
   @Prop({ required: true })
   courseId: string;
 
@@ -24,6 +27,7 @@ export class CourseAssignment {
     fileName: string;
     submitDate: string;
     grade?: number;
+    feedback?: string;
   }>;
 }
 

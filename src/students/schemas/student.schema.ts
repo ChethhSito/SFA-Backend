@@ -38,6 +38,18 @@ export class CycleStatusItem {
 
 @Schema({ timestamps: true })
 export class Student {
+  @Prop({ default: true })
+  active?: boolean;
+
+  @Prop({ type: Date, default: null })
+  deactivatedAt?: Date | null;
+
+  @Prop({ default: '' })
+  deactivationReason?: string;
+
+  @Prop({ type: Date, default: null })
+  reactivatedAt?: Date | null;
+
   @Prop({ required: true, unique: true, index: true })
   dni: string;
 
