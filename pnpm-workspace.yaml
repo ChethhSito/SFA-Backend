@@ -1,6 +1,7 @@
 allowBuilds:
   '@firebase/util': true
   '@scarf/scarf': true
+  bcrypt: set this to true or false
   protobufjs: true
   unrs-resolver: true
 

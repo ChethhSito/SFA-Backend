@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as bcrypt from 'bcryptjs';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+
+const BCRYPT_SALT_ROUNDS = 10;
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -11,6 +14,24 @@ export class UsersService implements OnModuleInit {
 
   async onModuleInit() {
     await this.seedInitialUsers();
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    if (!password) return '';
+    // Si ya está hasheada con bcrypt, no volver a hashear
+    if (password.startsWith('$2a$') || password.startsWith('$2b$')) {
+      return password;
+    }
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    return bcrypt.hash(password, salt);
+  }
+
+  async verifyPassword(plain: string, hashOrPlain: string): Promise<boolean> {
+    if (!plain || !hashOrPlain) return false;
+    if (hashOrPlain.startsWith('$2a$') || hashOrPlain.startsWith('$2b$')) {
+      return bcrypt.compare(plain, hashOrPlain);
+    }
+    return plain === hashOrPlain;
   }
 
   async seedInitialUsers() {
@@ -110,8 +131,10 @@ export class UsersService implements OnModuleInit {
 
     for (const u of initialUsers) {
       try {
+        const hashedPassword = await this.hashPassword(u.password || '123');
         const userToSeed = {
           ...u,
+          password: hashedPassword,
           firebaseUid: (u as any).firebaseUid || `seed-${u.id}`
         };
 
@@ -121,7 +144,7 @@ export class UsersService implements OnModuleInit {
 
         if (!exists) {
           await this.userModel.create(userToSeed);
-          console.log(`[Seed Users] Creado usuario inicial en MongoDB: ${userToSeed.email} (${userToSeed.role})`);
+          console.log(`[Seed Users] Creado usuario inicial en MongoDB con contraseña Bcrypt: ${userToSeed.email} (${userToSeed.role})`);
         }
       } catch (err) {
         console.error(`[Seed Users Error] Error al sembrar usuario ${u.email}:`, err);
@@ -151,7 +174,11 @@ export class UsersService implements OnModuleInit {
   }
 
   async create(createDto: CreateUserDto): Promise<UserDocument> {
-    const created = new this.userModel(createDto);
+    const data = { ...createDto };
+    if (data.password) {
+      data.password = await this.hashPassword(data.password);
+    }
+    const created = new this.userModel(data);
     return created.save();
   }
 
@@ -175,6 +202,9 @@ export class UsersService implements OnModuleInit {
 
   async update(id: string, updateDto: UpdateUserDto): Promise<UserDocument> {
     const { _id, ...cleanData } = updateDto as any;
+    if (cleanData.password) {
+      cleanData.password = await this.hashPassword(cleanData.password);
+    }
     const updated = await this.userModel
       .findOneAndUpdate(
         { $or: [{ _id: id }, { id: id }, { dni: id }] },

@@ -17,12 +17,21 @@ import { MailModule } from './mail/mail.module';
 import { MpaModule } from './mpa/mpa.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliation.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    // 🛑 Protección Anti-Fuerza Bruta y Anti-DoS (OWASP A07)
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // Ventana de 1 minuto
+        limit: 150,  // Máximo 150 peticiones por minuto por IP
+      },
+    ]),
     DatabaseModule,
     AuthModule,
     UsersModule,
@@ -40,6 +49,12 @@ import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliat
     BankReconciliationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
