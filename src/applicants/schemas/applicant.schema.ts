@@ -66,6 +66,15 @@ export class Applicant {
   paymentOperation?: string;
 
   @Prop()
+  paymentType?: string;
+
+  @Prop()
+  paymentVoucherFileName?: string;
+
+  @Prop()
+  paymentVoucherUrl?: string;
+
+  @Prop()
   paymentObservations?: string;
 
   @Prop({ required: true, default: 'No Programado' })
