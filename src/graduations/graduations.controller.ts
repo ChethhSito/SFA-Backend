@@ -3,7 +3,6 @@ import { GraduationsService } from './graduations.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
 @Controller('graduations')
-@UseGuards(AuthGuard)
 export class GraduationsController {
   constructor(private readonly graduationsService: GraduationsService) {}
 
@@ -28,6 +27,7 @@ export class GraduationsController {
   }
 
   @Delete(':studentDni')
+  @UseGuards(AuthGuard)
   remove(@Param('studentDni') studentDni: string) {
     return this.graduationsService.remove(studentDni);
   }
