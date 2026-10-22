@@ -5,7 +5,7 @@ describe('Attendance persistence', () => {
   function setup() {
     const response = { courseId: 'course-1', date: '2026-10-19', statusMap: { '12345678': 'Falta' } };
     const model = { findOneAndUpdate: jest.fn(() => ({ exec: async () => response })) };
-    return { model, response, service: new CoursesService({} as never, model as never, {} as never, {} as never) };
+    return { model, response, service: new CoursesService({} as never, model as never, {} as never, {} as never, {} as never, {} as never) };
   }
   it('updates only the marked student, with a canonical date and no replacement of the full map', async () => {
     const { model, service, response } = setup();

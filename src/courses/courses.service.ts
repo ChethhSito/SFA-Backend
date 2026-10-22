@@ -6,6 +6,16 @@ import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
 import { CourseMaterial, CourseMaterialDocument } from './schemas/course-material.schema';
 import { CourseAssignment, CourseAssignmentDocument } from './schemas/course-assignment.schema';
 import { mergeAttendanceRecords, normalizeAttendanceDate } from './attendance.utils';
+import { CourseEvidence, CourseEvidenceDocument } from './schemas/course-evidence.schema';
+import { CourseObservation, CourseObservationDocument } from './schemas/course-observation.schema';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { join, extname } from 'node:path';
+
+type FileUpload = { courseId: string; week?: number; title: string; fileName: string; contentBase64: string; mimeType: string; category?: string };
+const MAX_COURSE_FILE_BYTES = 10 * 1024 * 1024;
+const COURSE_UPLOAD_DIR = process.env.COURSE_UPLOAD_DIR || join(process.cwd(), 'uploads', 'course-assets');
+const ALLOWED_FILE_EXTENSIONS = new Set(['.pdf', '.docx', '.pptx', '.xlsx', '.png', '.jpg', '.jpeg', '.mp4']);
 
 @Injectable()
 export class CoursesService {
@@ -18,6 +28,10 @@ export class CoursesService {
     private materialModel: Model<CourseMaterialDocument>,
     @InjectModel(CourseAssignment.name)
     private assignmentModel: Model<CourseAssignmentDocument>,
+    @InjectModel(CourseEvidence.name)
+    private evidenceModel: Model<CourseEvidenceDocument>,
+    @InjectModel(CourseObservation.name)
+    private observationModel: Model<CourseObservationDocument>,
   ) {}
 
   async create(createCourseDto: any): Promise<CourseDocument> {
@@ -94,9 +108,98 @@ export class CoursesService {
     return this.materialModel.find().exec();
   }
 
-  async saveMaterial(dto: { courseId: string; title: string; fileName: string; date: string }): Promise<CourseMaterialDocument> {
-    const newMat = new this.materialModel(dto);
-    return newMat.save();
+  private async saveCourseFile(dto: FileUpload) {
+    if (!dto.courseId?.trim() || !dto.title?.trim() || !dto.fileName?.trim() || !dto.contentBase64) {
+      throw new BadRequestException('Curso, título y archivo son obligatorios.');
+    }
+    const extension = extname(dto.fileName).toLowerCase();
+    if (!ALLOWED_FILE_EXTENSIONS.has(extension) || !/^[\w.+-]+\/[\w.+-]+$/.test(dto.mimeType || '')) {
+      throw new BadRequestException('Tipo de archivo no admitido.');
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(dto.contentBase64)) throw new BadRequestException('Archivo inválido.');
+    const bytes = Buffer.from(dto.contentBase64, 'base64');
+    if (!bytes.length || bytes.length > MAX_COURSE_FILE_BYTES) throw new BadRequestException('El archivo debe tener como máximo 10 MB.');
+    const storedFileName = `${randomUUID()}${extension}`;
+    await mkdir(COURSE_UPLOAD_DIR, { recursive: true });
+    await writeFile(join(COURSE_UPLOAD_DIR, storedFileName), bytes, { flag: 'wx' });
+    return { storedFileName, fileSize: bytes.length, mimeType: dto.mimeType };
+  }
+
+  private async removeCourseFile(storedFileName?: string) {
+    if (storedFileName && /^[0-9a-f-]{36}\.[a-z0-9]+$/i.test(storedFileName)) {
+      await unlink(join(COURSE_UPLOAD_DIR, storedFileName)).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== 'ENOENT') throw error;
+      });
+    }
+  }
+
+  async getCourseFile(kind: 'materials' | 'evidences' | 'assignments', id: string) {
+    const item = kind === 'materials'
+      ? await this.materialModel.findById(id).lean().exec()
+      : kind === 'evidences'
+        ? await this.evidenceModel.findById(id).lean().exec()
+        : await this.assignmentModel.findById(id).lean().exec();
+    if (!item?.storedFileName) throw new NotFoundException('Archivo no encontrado.');
+    const path = join(COURSE_UPLOAD_DIR, item.storedFileName);
+    const data = await readFile(path).catch(() => { throw new NotFoundException('Archivo no encontrado en el servidor.'); });
+    return { data, fileName: kind === 'assignments' ? (item as CourseAssignment).attachment! : (item as CourseMaterial | CourseEvidence).fileName,
+      mimeType: item.mimeType || 'application/octet-stream' };
+  }
+
+  async saveMaterial(dto: FileUpload): Promise<CourseMaterialDocument> {
+    const file = await this.saveCourseFile(dto);
+    try {
+      return await new this.materialModel({ courseId: dto.courseId, title: dto.title, fileName: dto.fileName,
+        date: new Date().toISOString().slice(0, 10), ...file }).save();
+    } catch (error) { await this.removeCourseFile(file.storedFileName); throw error; }
+  }
+
+  async deleteMaterial(id: string) {
+    const item = await this.materialModel.findByIdAndDelete(id).exec();
+    if (!item) throw new NotFoundException('Material no encontrado.');
+    await this.removeCourseFile(item.storedFileName);
+    return { success: true };
+  }
+
+  async getEvidences(courseId: string, week: number) {
+    return this.evidenceModel.find({ courseId, week }).sort({ createdAt: -1 }).exec();
+  }
+
+  async saveEvidence(dto: FileUpload) {
+    if (!Number.isInteger(dto.week) || dto.week! < 1 || dto.week! > 16 ||
+        !['Fotografia', 'Reporte', 'Laboratorio', 'Actividad'].includes(dto.category || '')) {
+      throw new BadRequestException('Semana o categoría inválida.');
+    }
+    const file = await this.saveCourseFile(dto);
+    try {
+      return await new this.evidenceModel({ courseId: dto.courseId, week: dto.week, category: dto.category,
+        title: dto.title, fileName: dto.fileName, date: new Date().toISOString().slice(0, 10), ...file }).save();
+    } catch (error) { await this.removeCourseFile(file.storedFileName); throw error; }
+  }
+
+  async deleteEvidence(id: string) {
+    const item = await this.evidenceModel.findByIdAndDelete(id).exec();
+    if (!item) throw new NotFoundException('Evidencia no encontrada.');
+    await this.removeCourseFile(item.storedFileName);
+    return { success: true };
+  }
+
+  async getObservations(courseId: string, week: number) {
+    return this.observationModel.find({ courseId, week }).sort({ createdAt: -1 }).exec();
+  }
+
+  async saveObservation(dto: { courseId: string; week: number; type: string; text: string }) {
+    if (!dto.courseId?.trim() || !Number.isInteger(dto.week) || dto.week < 1 || dto.week > 16 ||
+        !['General', 'Incidencia', 'Acuerdo'].includes(dto.type) || !dto.text?.trim()) {
+      throw new BadRequestException('Datos de observación inválidos.');
+    }
+    return new this.observationModel({ ...dto, text: dto.text.trim(), date: new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) }).save();
+  }
+
+  async deleteObservation(id: string) {
+    const item = await this.observationModel.findByIdAndDelete(id).exec();
+    if (!item) throw new NotFoundException('Observación no encontrada.');
+    return { success: true };
   }
 
   // --- ASSIGNMENTS (TAREAS Y ENTREGAS DE ALUMNOS) ---
@@ -107,10 +210,17 @@ export class CoursesService {
     return this.assignmentModel.find().exec();
   }
 
-  async saveAssignment(dto: { courseId: string; title: string; description: string; dueDate: string; submissions?: CourseAssignment['submissions'] }): Promise<CourseAssignmentDocument> {
+  async saveAssignment(dto: { courseId: string; title: string; description: string; dueDate: string; kind?: string; attachment?: string; rubric?: string; contentBase64?: string; mimeType?: string; submissions?: CourseAssignment['submissions'] }): Promise<CourseAssignmentDocument> {
     this.validateAssignmentGrades(dto);
-    const newAsg = new this.assignmentModel(dto);
-    return newAsg.save();
+    if (dto.attachment && !dto.contentBase64) throw new BadRequestException('Adjunte el archivo real de la tarea.');
+    const file = dto.attachment ? await this.saveCourseFile({ courseId: dto.courseId, title: dto.title,
+      fileName: dto.attachment, contentBase64: dto.contentBase64!, mimeType: dto.mimeType || 'application/octet-stream' }) : null;
+    try {
+      const newAsg = new this.assignmentModel({ courseId: dto.courseId, title: dto.title, description: dto.description,
+        dueDate: dto.dueDate, kind: dto.kind, attachment: dto.attachment, rubric: dto.rubric,
+        submissions: dto.submissions || [], ...(file || {}) });
+      return await newAsg.save();
+    } catch (error) { await this.removeCourseFile(file?.storedFileName); throw error; }
   }
 
   private validateAssignmentGrades(dto: { submissions?: any[] }) {
@@ -148,6 +258,7 @@ export class CoursesService {
   async deleteAssignment(id: string) {
     const deleted = await this.assignmentModel.findByIdAndDelete(id).exec();
     if (!deleted) throw new NotFoundException('Evaluación no encontrada.');
+    await this.removeCourseFile(deleted.storedFileName);
     return { success: true };
   }
 

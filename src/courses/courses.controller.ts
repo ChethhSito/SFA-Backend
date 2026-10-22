@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { Res } from '@nestjs/common';
+import type { Response } from 'express';
 
 @Controller('courses')
 export class CoursesController {
@@ -42,10 +44,55 @@ export class CoursesController {
   }
 
   @Post('materials/upload')
-  saveMaterial(
-    @Body() body: { courseId: string; title: string; fileName: string; date: string },
-  ) {
+  saveMaterial(@Body() body: { courseId: string; title: string; fileName: string; contentBase64: string; mimeType: string }) {
     return this.coursesService.saveMaterial(body);
+  }
+
+  @Get('materials/:id/file')
+  async downloadMaterial(@Param('id') id: string, @Res() response: Response) {
+    const file = await this.coursesService.getCourseFile('materials', id);
+    response.type(file.mimeType).attachment(file.fileName).send(file.data);
+  }
+
+  @Delete('materials/:id')
+  deleteMaterial(@Param('id') id: string) {
+    return this.coursesService.deleteMaterial(id);
+  }
+
+  @Get('evidences/list')
+  getEvidences(@Query('courseId') courseId: string, @Query('week') week: string) {
+    return this.coursesService.getEvidences(courseId, Number(week));
+  }
+
+  @Post('evidences/upload')
+  saveEvidence(@Body() body: { courseId: string; week: number; category: string; title: string; fileName: string; contentBase64: string; mimeType: string }) {
+    return this.coursesService.saveEvidence(body);
+  }
+
+  @Get('evidences/:id/file')
+  async downloadEvidence(@Param('id') id: string, @Res() response: Response) {
+    const file = await this.coursesService.getCourseFile('evidences', id);
+    response.type(file.mimeType).attachment(file.fileName).send(file.data);
+  }
+
+  @Delete('evidences/:id')
+  deleteEvidence(@Param('id') id: string) {
+    return this.coursesService.deleteEvidence(id);
+  }
+
+  @Get('observations/list')
+  getObservations(@Query('courseId') courseId: string, @Query('week') week: string) {
+    return this.coursesService.getObservations(courseId, Number(week));
+  }
+
+  @Post('observations')
+  saveObservation(@Body() body: { courseId: string; week: number; type: string; text: string }) {
+    return this.coursesService.saveObservation(body);
+  }
+
+  @Delete('observations/:id')
+  deleteObservation(@Param('id') id: string) {
+    return this.coursesService.deleteObservation(id);
   }
 
   // --- ASSIGNMENTS ENDPOINTS ---
@@ -56,9 +103,15 @@ export class CoursesController {
 
   @Post('assignments/create')
   saveAssignment(
-    @Body() body: { courseId: string; title: string; description: string; dueDate: string },
+    @Body() body: { courseId: string; title: string; description: string; dueDate: string; kind?: string; attachment?: string; rubric?: string; contentBase64?: string; mimeType?: string },
   ) {
     return this.coursesService.saveAssignment(body);
+  }
+
+  @Get('assignments/:id/file')
+  async downloadAssignmentAttachment(@Param('id') id: string, @Res() response: Response) {
+    const file = await this.coursesService.getCourseFile('assignments', id);
+    response.type(file.mimeType).attachment(file.fileName).send(file.data);
   }
 
   @Patch('assignments/:id')

@@ -61,6 +61,9 @@ export class Enrollment {
 
   @Prop()
   shift?: string;
+
+  @Prop()
+  groupId?: string;
 }
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);

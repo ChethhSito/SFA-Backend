@@ -13,7 +13,7 @@ describe('Persisted assignment grades', () => {
     };
     assignment.save.mockImplementation(async () => assignment);
     const model = { findById: jest.fn(() => ({ exec: async () => assignment })) };
-    const service = new CoursesService({} as never, {} as never, {} as never, model as never);
+    const service = new CoursesService({} as never, {} as never, {} as never, model as never, {} as never, {} as never);
     return { assignment, model, service };
   };
 

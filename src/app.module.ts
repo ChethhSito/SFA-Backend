@@ -17,6 +17,8 @@ import { MailModule } from './mail/mail.module';
 import { MpaModule } from './mpa/mpa.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliation.module';
+import { ServiceRequestsModule } from './service-requests/service-requests.module';
+import { AcademicCalendarModule } from './academic-calendar/academic-calendar.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -47,6 +49,8 @@ import { APP_GUARD } from '@nestjs/core';
     MpaModule,
     AnalyticsModule,
     BankReconciliationModule,
+    ServiceRequestsModule,
+    AcademicCalendarModule,
   ],
   controllers: [AppController],
   providers: [

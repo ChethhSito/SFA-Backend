@@ -20,6 +20,12 @@ export class CourseAssignment {
   @Prop({ required: true })
   dueDate: string;
 
+  @Prop() attachment?: string;
+  @Prop() rubric?: string;
+  @Prop() storedFileName?: string;
+  @Prop() mimeType?: string;
+  @Prop() fileSize?: number;
+
   @Prop({ type: Array, default: [] })
   submissions: Array<{
     studentDni: string;

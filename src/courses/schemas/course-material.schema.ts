@@ -16,6 +16,15 @@ export class CourseMaterial {
 
   @Prop({ required: true })
   date: string;
+
+  @Prop()
+  storedFileName?: string;
+
+  @Prop()
+  mimeType?: string;
+
+  @Prop()
+  fileSize?: number;
 }
 
 export const CourseMaterialSchema = SchemaFactory.createForClass(CourseMaterial);

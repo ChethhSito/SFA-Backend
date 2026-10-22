@@ -77,6 +77,11 @@ export class MpaService implements OnModuleInit {
       } })));
     }
     await model.deleteMany(items.length ? { [key]: { $nin: items.map(item => item[key]) } } : {}).exec();
+    if (kind === 'periods') {
+      await this.connection.collection('academic_calendars').deleteMany(
+        items.length ? { periodId: { $nin: items.map(item => item.id) } } : {},
+      );
+    }
   }
 
   private async validate(kind: MpaKind, items: Record<string, unknown>[]) {
