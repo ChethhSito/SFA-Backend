@@ -12,7 +12,10 @@ export class AcademicCalendarController {
   @Get(':periodId/image')
   async getImage(@Param('periodId') periodId: string, @Res() response: Response) {
     const image = await this.service.getImage(periodId);
-    response.type(image.mimeType).setHeader('Cache-Control', 'no-store').send(image.data);
+    response.type(image.mimeType)
+      .setHeader('Cache-Control', 'no-store')
+      .setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+      .send(image.data);
   }
 
   @Put(':periodId/events')

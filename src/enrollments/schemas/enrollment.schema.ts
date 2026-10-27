@@ -33,6 +33,15 @@ export class EnrollmentDocs {
   fotoFile: StudentDoc;
 }
 
+@Schema({ _id: false })
+export class CourseGroupAssignment {
+  @Prop({ required: true })
+  courseId: string;
+
+  @Prop({ required: true })
+  groupId: string;
+}
+
 @Schema({ timestamps: true })
 export class Enrollment {
   @Prop({ required: true, unique: true })
@@ -64,6 +73,12 @@ export class Enrollment {
 
   @Prop()
   groupId?: string;
+
+  @Prop({ type: [CourseGroupAssignment], default: [] })
+  courseGroupAssignments?: CourseGroupAssignment[];
+
+  @Prop({ type: [CourseGroupAssignment], default: undefined })
+  registeredCourses?: CourseGroupAssignment[];
 }
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);
