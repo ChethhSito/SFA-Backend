@@ -95,7 +95,8 @@ export class ServiceRequestsService {
     const bankName = String(input.bankName || '').trim();
     if (bankName.length > 100) throw new BadRequestException('Banco inválido.');
     const updated = await this.requests.findOneAndUpdate({ id, status: { $ne: 'Validado' } },
-      { status, paymentOperation, paymentDate, amountPaid, bankName }, { new: true }).lean();
+      { status, paymentOperation, paymentDate, amountPaid, bankName,
+        ...(status === 'En Proceso' && paymentOperation ? { voucherRegisteredAt: new Date() } : {}) }, { new: true }).lean();
     if (!updated) throw new ConflictException('La solicitud no existe o su pago ya fue validado.');
     return updated;
   }
@@ -120,7 +121,7 @@ export class ServiceRequestsService {
       throw new BadRequestException('Ingrese el monto pagado.');
     const updated = await this.requests.findOneAndUpdate(
       { id, ...owner, status: { $in: ['Pendiente', 'Observado'] } },
-      { status: 'En Proceso', paymentOperation: operationNumber, paymentDate, amountPaid, bankName: 'Banco de la Nación' },
+      { status: 'En Proceso', paymentOperation: operationNumber, paymentDate, amountPaid, bankName: 'Banco de la Nación', voucherRegisteredAt: new Date() },
       { new: true },
     ).lean();
     if (!updated) throw new ConflictException('La solicitud cambió de estado. Actualice la página.');

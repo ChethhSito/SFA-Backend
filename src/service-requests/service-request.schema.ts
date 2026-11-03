@@ -47,6 +47,9 @@ export class ServiceRequest {
   @Prop({ default: '' })
   paymentOperation?: string;
 
+  @Prop()
+  voucherRegisteredAt?: Date;
+
   @Prop({ default: '' })
   paymentDate?: string;
 
