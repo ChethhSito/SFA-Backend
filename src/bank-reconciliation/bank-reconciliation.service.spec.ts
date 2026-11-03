@@ -1,4 +1,4 @@
-import { reconcile } from './bank-reconciliation.service';
+import { BankReconciliationService, reconcile } from './bank-reconciliation.service';
 
 const row = { operation: '308496', date: '2026-04-12', conceptCode: '01849', concept: 'Constancia', dni: '54793519', payer: 'Diego', amount: 30 };
 const obligation = {
@@ -24,5 +24,37 @@ describe('conciliación bancaria', () => {
 
   it('no revalida una obligación ya validada', () => {
     expect(reconcile({ fileName: 'demo.xlsx', rows: [row], obligations: [{ ...obligation, status: 'Validado' }] })[0].status).toBe('ya_validado');
+  });
+});
+
+describe('conciliación contra MongoDB', () => {
+  const source = { ...obligation, id: 'SOL-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' };
+  const request = { id: source.id, studentDni: source.studentDni, conceptCode: source.conceptCode,
+    amount: 30, amountPaid: 30, status: 'En Proceso', paymentOperation: 'OP-308496', paymentDate: row.date };
+  const requests = { findOne: jest.fn(() => ({ lean: async () => request })), updateOne: jest.fn(async () => ({})) };
+  const payments = { find: jest.fn(() => ({ lean: async () => [] })), findOne: jest.fn(() => ({ lean: async () => null })), updateOne: jest.fn(async () => ({})) };
+  const imports = { findOne: jest.fn(() => ({ lean: async () => null })), create: jest.fn(async () => ({})) };
+  const service = new BankReconciliationService(imports as never, payments as never, {} as never, {} as never, requests as never);
+
+  it('no acepta un voucher inventado solo en el navegador', async () => {
+    requests.findOne.mockReturnValueOnce({ lean: async () => null } as never);
+    const preview = await service.preview({ fileName: 'demo.xlsx', rows: [row], obligations: [source] });
+    expect(preview.matches).toBe(0);
+    expect(preview.results[0].status).toBe('fuente_no_verificada');
+  });
+
+  it('permite la coincidencia cuando la solicitud y el voucher existen en MongoDB', async () => {
+    const preview = await service.preview({ fileName: 'demo.xlsx', rows: [row], obligations: [source] });
+    expect(preview.matches).toBe(1);
+    expect(preview.results[0].obligationId).toBe(source.id);
+  });
+
+  it('confirma el Excel y actualiza la solicitud en MongoDB', async () => {
+    const input = { fileName: 'demo.xlsx', rows: [row], obligations: [source] };
+    const preview = await service.preview(input);
+    const result = await service.confirm({ ...input, expectedFingerprint: preview.fingerprint, expectedObligationIds: [source.id] });
+    expect(result.validatedObligationIds).toEqual([source.id]);
+    expect(payments.updateOne).toHaveBeenCalled();
+    expect(requests.updateOne).toHaveBeenCalledWith({ id: source.id, status: 'En Proceso' }, { $set: { status: 'Validado' } });
   });
 });

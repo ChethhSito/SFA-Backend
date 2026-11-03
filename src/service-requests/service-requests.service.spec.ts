@@ -4,14 +4,22 @@ import { ServiceRequestsService } from './service-requests.service';
 describe('ServiceRequestsService', () => {
   const student = { dni: '88881001', name: 'Prueba', lastName: 'Estudiante', active: true };
   const students = { findOne: jest.fn(() => ({ lean: async () => student })) };
+  const teachers = { findOne: jest.fn(() => ({ lean: async () => ({ dni: '20202020', name: 'Enrique', lastName: 'Gómez' }) })) };
   const requests = {
     create: jest.fn(async (record) => record),
     findOne: jest.fn(() => ({ lean: async () => ({ studentDni: student.dni, status: 'Pendiente' }) })),
     findOneAndUpdate: jest.fn(() => ({ lean: async () => ({ id: 'SOL-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }) })),
   };
-  const service = new ServiceRequestsService(requests as never, students as never);
+  const service = new ServiceRequestsService(requests as never, students as never, teachers as never,
+    { collection: () => ({ findOne: async () => null }) } as never);
 
   beforeEach(() => jest.clearAllMocks());
+
+  it('vincula un trámite docente con un profesor real y su concepto permitido', async () => {
+    const created = await service.create({ teacherDni: '20202020', conceptCode: 'DOC01', source: 'docente' });
+    expect(created).toMatchObject({ teacherDni: '20202020', studentDni: '', conceptCode: 'DOC01', amount: 30 });
+    await expect(service.create({ teacherDni: '20202020', conceptCode: 'MAT01', source: 'docente' })).rejects.toBeInstanceOf(BadRequestException);
+  });
 
   it('creates a student procedure using the registered student and official rate', async () => {
     const created = await service.create({ studentDni: student.dni, conceptCode: 'CER01', source: 'estudiante', reason: 'Beca' });

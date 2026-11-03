@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Student, StudentSchema } from '../students/schemas/student.schema';
+import { Teacher, TeacherSchema } from '../teachers/schemas/teacher.schema';
 import { ServiceRequest, ServiceRequestSchema } from './service-request.schema';
 import { ServiceRequestsController } from './service-requests.controller';
 import { ServiceRequestsService } from './service-requests.service';
@@ -8,6 +9,7 @@ import { ServiceRequestsService } from './service-requests.service';
 @Module({
   imports: [MongooseModule.forFeature([
     { name: Student.name, schema: StudentSchema },
+    { name: Teacher.name, schema: TeacherSchema },
     { name: ServiceRequest.name, schema: ServiceRequestSchema },
   ])],
   controllers: [ServiceRequestsController],
