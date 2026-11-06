@@ -18,10 +18,15 @@ Servicio Backend centralizado del **IESTP San Francisco de Asís**, desarrollado
 - 👨‍🎓 **/students**: Expediente de alumnos, datos de contacto y récord de ciclos (I-VI).
 - 💳 **/payments**: Tesorería (MAF), recibos de caja y control de pagos.
 - 🧾 **/bank-reconciliation**: Vista previa y confirmación de reportes bancarios cargados en MAF.
-- 📚 **/courses**: Catálogo de cursos, créditos y planificación académica (MPA).
+- 🗂️ **/maf-state**: Catálogos, obligaciones y auditoría MAF compartidos en MongoDB.
+- 📚 **/courses**: Cursos usados por las pantallas académicas, asistencias, materiales y evaluaciones; MPA mantiene su propio catálogo en `/mpa`.
 - 👨‍🏫 **/teachers**: Registro de la planta docente.
-- 📅 **/admission-periods**: Apertura y cierre de periodos académicos (2026-I, 2026-II).
+- 📅 **/admission-periods**: Convocatorias de admisión vinculadas a períodos académicos de MPA.
 - 🎓 **/graduations**: Seguimiento de egresados y trámites de titulación (MGE).
+- 📄 **/certificates**: Registro, consulta y revocación de certificados PDF ya emitidos; no genera ni firma el PDF.
+- 📝 **/service-requests**: Solicitudes de trámites y sus resultados.
+- 🗓️ **/academic-calendar**: Eventos e imagen del calendario por período.
+- 📊 **/analytics**: Indicadores y riesgo académico calculado mediante reglas y umbrales.
 - 🔐 **/users**: Administración de usuarios del sistema y roles (SuperAdmin).
 - ✉️ **/mail**: Servicio de correos transaccionales vía Brevo API.
 - 🗓️ **/mpa**: Datos de planificación académica compartidos por las pestañas del MPA.
@@ -34,7 +39,7 @@ La documentación interactiva de la API está en **http://127.0.0.1:3001/api/doc
 
 Una fila solo coincide si hay un único voucher **En Proceso** con la misma operación, DNI, fecha, concepto y monto (obligación y voucher). Se admiten las equivalencias `01844→MAT01`, `01845→ADM01`, `01846→CER01` y `01849→CON01`; las demás tasas quedan sin mapeo. Las operaciones duplicadas, diferencias y pagos ya importados quedan para revisión. El servidor guarda las filas extraídas, sus resultados y metadatos en `bankimports`; los pagos confirmados se registran en `payments`. **No se conserva el archivo `.xlsx` original.**
 
-Este flujo es una automatización de conciliación con carga y confirmación humanas, no un robot que opere un portal bancario. Las obligaciones MAF todavía se mantienen en `localStorage` del navegador y se envían como instantánea a la API. Por ello, esta implementación es una demo local; para varios usuarios o uso institucional hay que persistir las obligaciones en el servidor, aplicar autenticación y autorización y conservar el archivo original para auditoría. Más detalles y pasos de prueba en [CONCILIACION_BANCARIA.md](CONCILIACION_BANCARIA.md).
+Este flujo es una automatización de conciliación con carga y confirmación humanas; no opera un portal bancario. Catálogos, obligaciones y auditoría MAF se guardan en la colección `maf_state` mediante `/maf-state`; el frontend también conserva una copia en `localStorage` y envía una instantánea de obligaciones a la conciliación. El guardado MAF no tiene aún autorización por rol en sus rutas y algunas escrituras del frontend son asíncronas sin reintento automático. Antes de un uso institucional se requiere reforzar permisos, consistencia entre clientes y auditoría del archivo original. Más detalles en [CONCILIACION_BANCARIA.md](CONCILIACION_BANCARIA.md), cuya descripción del almacenamiento MAF requiere actualización.
 
 ### Flujo MPA
 
@@ -67,7 +72,7 @@ MONGODB_URI=mongodb://127.0.0.1:27017/sfa_database
 BREVO_API_KEY=tu_api_key_brevo
 ```
 
-En Windows, comprueba que el servicio `MongoDB` esté iniciado. Copia `.env.example` a `.env` antes de arrancar la API. La base `sfa_database` se crea al iniciar el backend y registrar sus colecciones. `HOST=127.0.0.1` limita el acceso a este equipo; cámbialo solo si necesitas servir la API en otra interfaz de red.
+En Windows, comprueba que el servicio `MongoDB` esté iniciado. Copia `.env.example` a `.env` y ajusta `MONGODB_URI`: el ejemplo incluido apunta a la base `sfa`, mientras que, si la variable no está definida, el código usa `sfa_database`. El nombre real de la base depende de la URI configurada. `HOST=127.0.0.1` limita el acceso a este equipo; cámbialo solo si necesitas servir la API en otra interfaz de red.
 
 ### Ejecutar Localmente
 ```bash

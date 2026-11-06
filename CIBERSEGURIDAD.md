@@ -1,7 +1,11 @@
 # 🛡️ Especificación Técnica de Ciberseguridad y Hardening
 > **Sistema Integrado de Gestión Institucional (SFA)** — IESTP San Francisco de Asís  
-> **Arquitectura:** NestJS (Backend) / React + Vite (Frontend) / MongoDB Atlas  
-> **Estándar de Cumplimiento:** OWASP Top 10 (2021) & NIST Cybersecurity Framework
+> **Arquitectura:** NestJS (Backend) / React + Vite (Frontend) / MongoDB local o Atlas según `MONGODB_URI`
+> **Referencia de diseño:** OWASP Top 10 (2021) y NIST Cybersecurity Framework; este documento no certifica cumplimiento.
+
+## Estado real de implementación
+
+El backend configura Helmet, límite global de solicitudes y `ValidationPipe`, pero CORS acepta el origen de la petición y la autorización por rol no protege todas las rutas. `AuthGuard` y `RolesGuard` existen y se usan solo donde se declaran. `maf-state`, conciliación bancaria y varias rutas de gestión no tienen guarda por rol. La bitácora MAF se guarda en MongoDB, pero no es inmutable. Las secciones siguientes describen mecanismos existentes y objetivos de endurecimiento; no deben interpretarse como garantías aplicadas a todos los endpoints.
 
 ---
 
@@ -41,14 +45,14 @@ La plataforma implementa el modelo de **Defensa en Profundidad (Defense in Depth
 
 | # | Control de Seguridad | Paquete / Mecanismo | Archivo Fuente | Parámetros Técnicos Configurados |
 | :---: | :--- | :--- | :--- | :--- |
-| **1** | **Cabeceras HTTP Seguras** | `helmet` | [main.ts](file:///d:/TP%20-2026/SFA-Backend/src/main.ts#L10-L24) | `frameguard: { action: 'deny' }`, `xContentTypeOptions: true`, CSP para scripts e imágenes |
-| **2** | **Aislamiento de Origen (CORS)** | `enableCors()` | [main.ts](file:///d:/TP%20-2026/SFA-Backend/src/main.ts#L26-L32) | `origin: ['http://localhost:3000', ...]`, `credentials: true` |
-| **3** | **Mitigación DoS / Fuerza Bruta** | `@nestjs/throttler` | [app.module.ts](file:///d:/TP%20-2026/SFA-Backend/src/app.module.ts#L44-L56) | `ttl: 60000 ms (1 min)`, `limit: 150 req`, `APP_GUARD: ThrottlerGuard` |
-| **4** | **Criptografía de Contraseñas** | `bcryptjs` | [users.service.ts](file:///d:/TP%20-2026/SFA-Backend/src/users/users.service.ts#L32-L46) | Algoritmo Blowfish cipher, `saltRounds: 10`, función hash unidireccional con salt aleatorio |
-| **5** | **Autenticación Criptográfica** | `AuthGuard` | [auth.guard.ts](file:///d:/TP%20-2026/SFA-Backend/src/auth/guards/auth.guard.ts) | Verificación de firma criptográfica de tokens Firebase ID (JWT) |
-| **6** | **Control de Acceso Basado en Roles** | `RolesGuard` + `@Roles` | [roles.guard.ts](file:///d:/TP%20-2026/SFA-Backend/src/auth/guards/roles.guard.ts) / [roles.decorator.ts](file:///d:/TP%20-2026/SFA-Backend/src/auth/decorators/roles.decorator.ts) | Extracción de metadatos vía `Reflector`, validación estricta de privilegios (`ADMIN`, `DOCENTE`, `ALUMNO`) |
-| **7** | **Sanitización & Anti-Inyección** | `ValidationPipe` | [main.ts](file:///d:/TP%20-2026/SFA-Backend/src/main.ts#L34-L38) | `whitelist: true`, `transform: true` |
-| **8** | **Trazabilidad y Auditoría** | Bitácora MAF | [database.module.ts](file:///d:/TP%20-2026/SFA-Backend/src/database/database.module.ts) | Registro inmutable de transacciones financieras y estados académicos |
+| **1** | **Cabeceras HTTP Seguras** | `helmet` | [main.ts](src/main.ts#L10-L24) | `frameguard: { action: 'deny' }`, `xContentTypeOptions: true`, CSP para scripts e imágenes |
+| **2** | **Configuración CORS actual** | `enableCors()` | [main.ts](src/main.ts) | `origin: true`, `credentials: true`; no restringe orígenes a una lista fija |
+| **3** | **Mitigación DoS / Fuerza Bruta** | `@nestjs/throttler` | [app.module.ts](src/app.module.ts#L44-L56) | `ttl: 60000 ms (1 min)`, `limit: 150 req`, `APP_GUARD: ThrottlerGuard` |
+| **4** | **Criptografía de Contraseñas** | `bcryptjs` | [users.service.ts](src/users/users.service.ts#L32-L46) | Algoritmo Blowfish cipher, `saltRounds: 10`, función hash unidireccional con salt aleatorio |
+| **5** | **Autenticación Criptográfica** | `AuthGuard` | [auth.guard.ts](src/auth/guards/auth.guard.ts) | Verificación de firma criptográfica de tokens Firebase ID (JWT) |
+| **6** | **Control de Acceso Basado en Roles** | `RolesGuard` + `@Roles` | [roles.guard.ts](src/auth/guards/roles.guard.ts) / [roles.decorator.ts](src/auth/decorators/roles.decorator.ts) | Extracción de metadatos vía `Reflector`, validación estricta de privilegios (`ADMIN`, `DOCENTE`, `ALUMNO`) |
+| **7** | **Sanitización & Anti-Inyección** | `ValidationPipe` | [main.ts](src/main.ts#L34-L38) | `whitelist: true`, `transform: true` |
+| **8** | **Trazabilidad MAF parcial** | `maf_state` | [maf-state.controller.ts](src/maf-state/maf-state.controller.ts) | Guarda el arreglo de auditoría; permite reemplazarlo y no garantiza inmutabilidad |
 | **9** | **Gestión de Secretos** | `@nestjs/config` | `.env` / `.gitignore` | Cero credenciales expuestas en repositorio de control de versiones |
 
 ---
@@ -209,7 +213,7 @@ La plataforma implementa el modelo de **Defensa en Profundidad (Defense in Depth
 
 ### Validación en Servidor vs. Cliente
 * La validación en el cliente (React) se mantiene exclusivamente con fines de experiencia de usuario (UX) para brindar retroalimentación visual inmediata.
-* Ningún control de seguridad del sistema depende del cliente: el servidor NestJS revalida tipos, restricciones de esquema y autorizaciones en cada endpoint de forma autónoma e independiente.
+* La validación global transforma entradas y aplica DTOs donde existen; no reemplaza la validación específica de cada operación. La autorización por rol todavía debe incorporarse en las rutas que no declaran guardas.
 
 ---
 
