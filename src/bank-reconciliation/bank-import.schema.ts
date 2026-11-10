@@ -21,6 +21,15 @@ export class BankImport {
   @Prop({ type: [String], default: [] })
   validatedObligationIds: string[];
 
+  @Prop()
+  fileBase64?: string;
+
+  @Prop()
+  fileMimeType?: string;
+
+  @Prop()
+  fileSizeBytes?: number;
+
   @Prop({ required: true })
   importedAt: string;
 }

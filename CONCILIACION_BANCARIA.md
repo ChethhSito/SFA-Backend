@@ -2,7 +2,7 @@
 
 ## Alcance implementado
 
-El usuario carga un reporte `.xlsx` en **MAF → Validación de Pagos**. El navegador lee la primera hoja y envía las filas extraídas y las obligaciones MAF actuales al backend. `preview` clasifica cada fila; tras la revisión humana, `confirm` recalcula el resultado, guarda la importación y registra en `payments` solo las coincidencias. MAF cambia a **Validado** las obligaciones confirmadas y registra la acción en su auditoría local.
+El usuario carga un reporte `.xlsx` en **MAF → Validación de Pagos**. El navegador lee la primera hoja y envía las filas extraídas y las obligaciones MAF actuales al backend. `preview` clasifica cada fila; tras la revisión humana, `confirm` recalcula el resultado, guarda la importación y registra en `payments` solo las coincidencias. MAF cambia a **Validado** las obligaciones confirmadas y sincroniza su estado y auditoría con `maf_state` en MongoDB, además de conservar una copia local.
 
 Se usa `read-excel-file` para leer el libro en el navegador y NestJS/Mongoose para conciliar y persistir. No hay descarga automática del banco, OCR de vouchers, robot de interfaz ni emisión automática de recibos.
 
@@ -43,7 +43,7 @@ La imagen del voucher es solo una referencia visual: actualmente sus datos se re
 
 ## Límites antes de producción
 
-- Las obligaciones y estados MAF aún viven en `localStorage`; otra sesión o navegador no comparte una fuente autoritativa de obligaciones. La API recibe esa instantánea desde el cliente.
-- Los endpoints de conciliación no tienen una guarda de autorización propia. La configuración actual del backend escucha en `127.0.0.1`; no se debe exponer este flujo a una red o Internet sin autenticación, permisos MAF y obligaciones mantenidas por el servidor.
+- Catálogos, obligaciones y auditoría MAF se guardan en `maf_state` y se copian en `localStorage`. La conciliación todavía recibe una instantánea de obligaciones desde el cliente; el frontend realiza algunas escrituras asíncronas sin reintento automático. Hay que reforzar la consistencia entre sesiones y la validación del estado en el servidor.
+- Los endpoints de conciliación y `maf-state` no tienen una guarda de autorización por rol. Antes de exponer el flujo a una red o Internet se necesitan autenticación y permisos MAF.
 - El Excel original no queda disponible para descarga o auditoría documental. Habría que guardarlo con una huella del archivo y una política de retención.
 - No existe integración con el Banco de la Nación; los datos del ejemplo son ficticios.

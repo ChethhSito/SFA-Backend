@@ -100,6 +100,37 @@ export class ApplicantsService {
       delete cleanData.applicantCode;
     }
 
+    if (cleanData.docs && existing.docs) {
+      const existingDocs: any =
+        typeof (existing.docs as any).toObject === 'function'
+          ? (existing.docs as any).toObject()
+          : existing.docs;
+      const mergedDocs: any = { ...existingDocs };
+      for (const key of ['dniFile', 'certificadoFile', 'partidaFile', 'fotoFile']) {
+        if (cleanData.docs[key]) {
+          const prevDoc = existingDocs[key] || {};
+          const nextDoc = cleanData.docs[key];
+          mergedDocs[key] = {
+            ...prevDoc,
+            ...nextDoc,
+            fileDataUrl:
+              nextDoc.status === 'No Enviado'
+                ? undefined
+                : nextDoc.fileDataUrl || prevDoc.fileDataUrl,
+          };
+        }
+      }
+      cleanData.docs = mergedDocs;
+    }
+
+    if (
+      cleanData.paymentStatus !== 'No Pagado' &&
+      !cleanData.paymentVoucherUrl &&
+      (existing as any).paymentVoucherUrl
+    ) {
+      cleanData.paymentVoucherUrl = (existing as any).paymentVoucherUrl;
+    }
+
     const updated = await this.applicantModel
       .findOneAndUpdate({ dni }, { $set: cleanData }, { returnDocument: 'after' })
       .exec();

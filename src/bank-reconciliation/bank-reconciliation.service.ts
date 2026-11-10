@@ -1,12 +1,17 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { createHash } from 'node:crypto';
 import { Model } from 'mongoose';
 import { BankImport, BankImportDocument } from './bank-import.schema';
 import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
+import { Applicant, ApplicantDocument } from '../applicants/schemas/applicant.schema';
+import { Enrollment, EnrollmentDocument } from '../enrollments/schemas/enrollment.schema';
+import { ServiceRequest, ServiceRequestDocument } from '../service-requests/service-request.schema';
+import { AcademicGroup } from '../mpa/schemas/academic-planning.schemas';
 
 const bankConcepts: Record<string, string> = {
   '01844': 'MAT01', '01845': 'ADM01', '01846': 'CER01', '01849': 'CON01',
+  '01850': 'DOC01', '01851': 'DOC02',
 };
 
 export interface BankRow {
@@ -29,7 +34,14 @@ interface VoucherObligation {
   voucherDetails?: { operationNumber: string; paymentDate: string; amountPaid: number };
 }
 
-type Input = { fileName: string; rows: BankRow[]; obligations: VoucherObligation[] };
+type Input = {
+  fileName: string;
+  rows: BankRow[];
+  obligations: VoucherObligation[];
+  fileBase64?: string;
+  fileMimeType?: string;
+  fileSizeBytes?: number;
+};
 type Result = { row: number; operation: string; dni: string; amount: number; status: string; detail: string; obligationId?: string };
 
 function operation(value: unknown): string {
@@ -45,6 +57,8 @@ function parseInput(value: unknown): Input {
     throw new BadRequestException('Seleccione un archivo .xlsx válido.');
   if (!Array.isArray(input.rows) || input.rows.length === 0 || input.rows.length > 5000 || !Array.isArray(input.obligations) || input.obligations.length > 20000)
     throw new BadRequestException('Cantidad de filas u obligaciones inválida.');
+  if (input.fileBase64 !== undefined && (typeof input.fileBase64 !== 'string' || input.fileBase64.length > 25 * 1024 * 1024))
+    throw new BadRequestException('El archivo binario excede el tamaño máximo permitido.');
   input.rows.forEach((r, i) => {
     if (!r || typeof r.operation !== 'string' || !operation(r.operation) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) ||
       typeof r.conceptCode !== 'string' || !/^\d{5}$/.test(r.conceptCode) || typeof r.dni !== 'string' || !/^\d{8}$/.test(r.dni) ||
@@ -91,7 +105,33 @@ export class BankReconciliationService {
   constructor(
     @InjectModel(BankImport.name) private readonly imports: Model<BankImportDocument>,
     @InjectModel(Payment.name) private readonly payments: Model<PaymentDocument>,
+    @InjectModel(Applicant.name) private readonly applicants: Model<ApplicantDocument>,
+    @InjectModel(Enrollment.name) private readonly enrollments: Model<EnrollmentDocument>,
+    @InjectModel(ServiceRequest.name) private readonly requests: Model<ServiceRequestDocument>,
+    @InjectModel(AcademicGroup.name) private readonly groups: Model<any>,
   ) {}
+
+  private async verifySource(o: VoucherObligation): Promise<boolean> {
+    const op = operation(o.voucherDetails?.operationNumber);
+    if (o.id.startsWith('SOL-')) {
+      const request = await this.requests.findOne({ id: o.id }).lean();
+      return !!request && (request.studentDni || request.teacherDni) === o.studentDni && request.conceptCode === o.conceptCode &&
+        cents(request.amount) === cents(o.finalAmount) && request.status === 'En Proceso' &&
+        operation(request.paymentOperation) === op && request.paymentDate === o.voucherDetails?.paymentDate &&
+        cents(request.amountPaid || 0) === cents(o.voucherDetails?.amountPaid || 0);
+    }
+    if (o.conceptCode === 'ADM01' && o.id === `OBL-ADM-${o.studentDni}`) {
+      const applicant = await this.applicants.findOne({ dni: o.studentDni }).lean();
+      return !!applicant && cents(o.finalAmount) === 120 && operation(applicant.paymentOperation || '') === op &&
+        ['POR_VERIFICAR', 'En Proceso', 'Pendiente', 'Pagado'].includes(applicant.paymentStatus);
+    }
+    if (o.conceptCode === 'MAT01' && o.id === `OBL-MAT-${o.studentDni}`) {
+      const enrollment = await this.enrollments.findOne({ studentDni: o.studentDni }).lean();
+      return !!enrollment && cents(o.finalAmount) === 250 && operation(enrollment.paymentOperation || '') === op &&
+        ['POR_VERIFICAR', 'En Proceso', 'Pendiente', 'Pagado'].includes(enrollment.paymentStatus);
+    }
+    return false;
+  }
 
   private fingerprint(rows: BankRow[]): string {
     return createHash('sha256').update(JSON.stringify(rows.map(r => ({
@@ -101,6 +141,13 @@ export class BankReconciliationService {
 
   private async accountForImportedPayments(input: Input, results: Result[]): Promise<Result[]> {
     const matching = results.filter(r => r.status === 'coincide');
+    for (const result of matching) {
+      const obligation = input.obligations.find(o => o.id === result.obligationId)!;
+      if (!await this.verifySource(obligation)) {
+        result.status = 'fuente_no_verificada';
+        result.detail = 'El voucher no coincide con una solicitud pendiente en la base de datos.';
+      }
+    }
     if (!matching.length) return results;
     const keys = matching.map(r => `${input.rows[r.row - 1].date}:${operation(r.operation)}`);
     const existing = await this.payments.find({ bankOperationKey: { $in: keys } }).lean();
@@ -150,10 +197,83 @@ export class BankReconciliationService {
         paymentMethod: 'BANCO_NACION', receiptNumber: r.operation,
         notes: `Conciliado con reporte ${input.fileName}`, mafObligationId: o.id,
       } }, { upsert: true });
+      if (o.id.startsWith('SOL-')) await this.requests.updateOne({ id: o.id, status: 'En Proceso' }, { $set: { status: 'Validado' } });
+      if (o.conceptCode === 'ADM01') await this.applicants.updateOne({ dni: o.studentDni }, { $set: { paymentStatus: 'Validado' } });
+      if (o.conceptCode === 'MAT01') {
+        const applicant = await this.applicants.findOne({ dni: o.studentDni }).lean();
+        const currentEnrollment = await this.enrollments.findOne({ studentDni: o.studentDni }).lean();
+        const programId = currentEnrollment?.programId || applicant?.programId || 'electronica';
+        const shift = currentEnrollment?.shift || 'Mañana';
+        const shiftId = shift === 'Mañana' ? 'sh_m' : shift === 'Tarde' ? 'sh_t' : 'sh_n';
+
+        // Auto-assign appropriate Ciclo I group from MPA if not already assigned
+        let assignedGroupId = currentEnrollment?.groupId;
+        if (!assignedGroupId) {
+          const matchedGroup = await this.groups.findOne({
+            careerId: programId,
+            cycle: 1,
+            shiftId,
+          }).lean().exec();
+          assignedGroupId = matchedGroup ? (matchedGroup as any).id : (
+            programId.includes('con') ? 'gp_contabilidad_m1' : 'gp_electronica_m1'
+          );
+        }
+
+        await this.enrollments.updateOne(
+          { studentDni: o.studentDni },
+          {
+            $set: {
+              paymentStatus: 'Validado',
+              academicStatus: 'MATRICULADO',
+              programId,
+              shift,
+              groupId: assignedGroupId,
+            },
+          },
+          { upsert: true },
+        );
+
+        if (applicant) {
+          await this.applicants.updateOne(
+            { dni: o.studentDni },
+            { $set: { folderStatus: 'Enrolled', admitted: true } },
+          );
+        }
+      }
     }
     const validatedObligationIds = matching.map(r => r.obligationId!);
-    await this.imports.create({ fingerprint, fileName: input.fileName,
-      rows: input.rows, results: results as unknown as Record<string, unknown>[], validatedObligationIds, importedAt: new Date().toISOString() });
+    await this.imports.create({
+      fingerprint,
+      fileName: input.fileName,
+      rows: input.rows,
+      results: results as unknown as Record<string, unknown>[],
+      validatedObligationIds,
+      fileBase64: input.fileBase64,
+      fileMimeType: input.fileMimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      fileSizeBytes: input.fileSizeBytes || (input.fileBase64 ? Math.round((input.fileBase64.length * 3) / 4) : undefined),
+      importedAt: new Date().toISOString(),
+    });
     return { fingerprint, repeated: false, validatedObligationIds };
+  }
+
+  async getFile(fingerprint: string) {
+    const record = await this.imports.findOne({ fingerprint }).lean();
+    if (!record || !record.fileBase64) {
+      throw new NotFoundException('Archivo de conciliación no encontrado.');
+    }
+    return {
+      fileName: record.fileName,
+      fileBase64: record.fileBase64,
+      fileMimeType: record.fileMimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      fileSizeBytes: record.fileSizeBytes,
+      importedAt: record.importedAt,
+    };
+  }
+
+  async listImports() {
+    return this.imports.find(
+      {},
+      { fingerprint: 1, fileName: 1, importedAt: 1, validatedObligationIds: 1, fileSizeBytes: 1 },
+    ).sort({ createdAt: -1 }).lean().exec();
   }
 }

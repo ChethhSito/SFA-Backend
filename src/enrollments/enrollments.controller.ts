@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Put, Param, Delete, UseGuards } from '@nestjs/common';
 import { EnrollmentsService } from './enrollments.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 
@@ -24,6 +24,11 @@ export class EnrollmentsController {
   @Patch(':studentDni')
   update(@Param('studentDni') studentDni: string, @Body() updateEnrollmentDto: any) {
     return this.enrollmentsService.update(studentDni, updateEnrollmentDto);
+  }
+
+  @Put(':studentDni/courses')
+  registerCourses(@Param('studentDni') studentDni: string, @Body() body: { items: { courseId: string; groupId: string }[] }) {
+    return this.enrollmentsService.registerCourses(studentDni, body?.items);
   }
 
   @Delete(':studentDni')
