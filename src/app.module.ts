@@ -20,6 +20,7 @@ import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliat
 import { ServiceRequestsModule } from './service-requests/service-requests.module';
 import { AcademicCalendarModule } from './academic-calendar/academic-calendar.module';
 import { MafStateModule } from './maf-state/maf-state.module';
+import { PublicContentModule } from './public-content/public-content.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -53,6 +54,7 @@ import { APP_GUARD } from '@nestjs/core';
     ServiceRequestsModule,
     AcademicCalendarModule,
     MafStateModule,
+    PublicContentModule,
   ],
   controllers: [AppController],
   providers: [

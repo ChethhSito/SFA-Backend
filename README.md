@@ -70,6 +70,9 @@ PORT=3001
 HOST=127.0.0.1
 MONGODB_URI=mongodb://127.0.0.1:27017/sfa_database
 BREVO_API_KEY=tu_api_key_brevo
+BREVO_SENDER_EMAIL=correo-verificado@ejemplo.edu.pe
+FRONTEND_URL=http://localhost:3000
+SFA_SESSION_SECRET=una-clave-aleatoria-larga-y-privada
 ```
 
 En Windows, comprueba que el servicio `MongoDB` esté iniciado. Copia `.env.example` a `.env` y ajusta `MONGODB_URI`: el ejemplo incluido apunta a la base `sfa`, mientras que, si la variable no está definida, el código usa `sfa_database`. El nombre real de la base depende de la URI configurada. `HOST=127.0.0.1` limita el acceso a este equipo; cámbialo solo si necesitas servir la API en otra interfaz de red.
@@ -89,3 +92,17 @@ pnpm run build
 ---
 
 © 2026 **IESTP San Francisco de Asís** — Servicio API Backend.
+
+### Portal público y accesos institucionales
+
+- `GET /public-content/catalog` publica carreras activas y mallas de MPA, y tasas activas de MAF. Si un catálogo está vacío, el portal muestra un estado vacío; ya no presenta carreras ni montos de ejemplo.
+- `GET /public-content/transparency` muestra documentos publicados. SuperAdmin registra y retira enlaces HTTPS mediante `POST /public-content/transparency` y `DELETE /public-content/transparency/:id`. Deben ser enlaces a documentos oficiales reales.
+- `POST /public-content/contact` guarda consultas en `public_inquiries` con estado Pendiente. Aún no hay bandeja de atención ni notificación al personal.
+- SuperAdmin crea accesos de MAMC, MPA, MGE, MAF y docentes mediante `POST /users`. Un docente debe figurar como Disponible en MPA (`academic_teachers`). Al crear la cuenta, queda Pendiente y se envía por Brevo un enlace de activación válido por 24 horas. `POST /users/activate` permite elegir la clave; `POST /users/login` devuelve una sesión de 8 horas. El correo de activación no incluye contraseña. Si Brevo no está configurado, el alta se guarda y la respuesta indica que el correo falló; SuperAdmin puede reenviar la invitación.
+- `GET/PATCH/DELETE /users`, publicación de Transparencia, escritura de MAF y confirmación bancaria requieren una sesión institucional con el rol correspondiente. La preinscripción crea postulantes por su propio flujo; alumnos y superadministradores no se crean desde el directorio de SuperAdmin.
+
+Las cuentas iniciales de demostración conservan la clave heredada `123`; deben reemplazarse antes de usar datos reales. Otros endpoints históricos aún necesitan control de acceso por rol para un despliegue institucional.
+
+### Conjunto de demostración local (10/11/2026)
+
+`node scripts/reset-demo-data.cjs --apply` borra los registros de todas las colecciones de la base **local** salvo `users`, conserva las cuentas institucionales y carga un conjunto coherente para la demo. El script rechaza una URI que no apunte a `localhost` o `127.0.0.1`. Se cargan los seis nombres de programas que aparecen en el [sitio institucional](https://www.iestpsfa.edu.pe/), dos períodos académicos, una convocatoria abierta, un docente, un alumno, un postulante, tasas de MAF y enlaces a secciones oficiales de Transparencia. Fechas, personas, importes y mallas curriculares son **ficticios** para probar flujos; no representan un cronograma, arancelario ni plan de estudios aprobado.

@@ -7,9 +7,10 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { Applicant, ApplicantSchema } from '../applicants/schemas/applicant.schema';
 import { Enrollment, EnrollmentSchema } from '../enrollments/schemas/enrollment.schema';
 import { ServiceRequest, ServiceRequestSchema } from '../service-requests/service-request.schema';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([
+  imports: [UsersModule, MongooseModule.forFeature([
     { name: BankImport.name, schema: BankImportSchema },
     { name: Payment.name, schema: PaymentSchema },
     { name: Applicant.name, schema: ApplicantSchema },

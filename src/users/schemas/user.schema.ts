@@ -32,8 +32,14 @@ export class User {
   @Prop({ default: 'Activo' })
   status: string;
 
-  @Prop({ default: '123' })
+  @Prop()
   password?: string;
+
+  @Prop({ select: false })
+  activationTokenHash?: string;
+
+  @Prop({ select: false })
+  activationExpiresAt?: Date;
 
   @Prop({ sparse: true, index: true })
   firebaseUid?: string;
