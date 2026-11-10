@@ -7,6 +7,7 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { Applicant, ApplicantSchema } from '../applicants/schemas/applicant.schema';
 import { Enrollment, EnrollmentSchema } from '../enrollments/schemas/enrollment.schema';
 import { ServiceRequest, ServiceRequestSchema } from '../service-requests/service-request.schema';
+import { AcademicGroup, AcademicGroupSchema } from '../mpa/schemas/academic-planning.schemas';
 
 @Module({
   imports: [MongooseModule.forFeature([
@@ -15,6 +16,7 @@ import { ServiceRequest, ServiceRequestSchema } from '../service-requests/servic
     { name: Applicant.name, schema: ApplicantSchema },
     { name: Enrollment.name, schema: EnrollmentSchema },
     { name: ServiceRequest.name, schema: ServiceRequestSchema },
+    { name: AcademicGroup.name, schema: AcademicGroupSchema },
   ])],
   controllers: [BankReconciliationController],
   providers: [BankReconciliationService],

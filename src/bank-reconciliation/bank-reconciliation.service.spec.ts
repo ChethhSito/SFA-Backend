@@ -34,7 +34,8 @@ describe('conciliación contra MongoDB', () => {
   const requests = { findOne: jest.fn(() => ({ lean: async () => request })), updateOne: jest.fn(async () => ({})) };
   const payments = { find: jest.fn(() => ({ lean: async () => [] })), findOne: jest.fn(() => ({ lean: async () => null })), updateOne: jest.fn(async () => ({})) };
   const imports = { findOne: jest.fn(() => ({ lean: async () => null })), create: jest.fn(async () => ({})) };
-  const service = new BankReconciliationService(imports as never, payments as never, {} as never, {} as never, requests as never);
+  const groups = { findOne: jest.fn(() => ({ lean: () => ({ exec: async () => ({ id: 'gp_electronica_m1' }) }) })) };
+  const service = new BankReconciliationService(imports as never, payments as never, {} as never, {} as never, requests as never, groups as never);
 
   it('no acepta un voucher inventado solo en el navegador', async () => {
     requests.findOne.mockReturnValueOnce({ lean: async () => null } as never);
