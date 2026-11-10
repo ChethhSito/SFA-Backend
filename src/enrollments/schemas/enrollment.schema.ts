@@ -53,6 +53,9 @@ export class Enrollment {
   @Prop()
   paymentOperation?: string;
 
+  @Prop({ maxlength: 1000 })
+  paymentObservations?: string;
+
   @Prop()
   paymentVoucherFileName?: string;
 

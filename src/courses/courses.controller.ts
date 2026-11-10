@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, GoneException } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { Res } from '@nestjs/common';
@@ -34,7 +34,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Body() body: { date: string; statusMap: Record<string, string>; week?: number },
   ) {
-    return this.coursesService.saveAttendance(courseId, body.date, body.statusMap, body.week);
+    throw new GoneException('El registro por curso y fecha está deshabilitado. Abra la sección programada y guarde la asistencia completa.');
   }
 
   // --- MATERIALS ENDPOINTS ---

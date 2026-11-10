@@ -8,6 +8,8 @@ import { CourseMaterial, CourseMaterialSchema } from './schemas/course-material.
 import { CourseAssignment, CourseAssignmentSchema } from './schemas/course-assignment.schema';
 import { CourseEvidence, CourseEvidenceSchema } from './schemas/course-evidence.schema';
 import { CourseObservation, CourseObservationSchema } from './schemas/course-observation.schema';
+import { AttendanceSessionsController } from './attendance-sessions.controller';
+import { AttendanceSessionsService } from './attendance-sessions.service';
 
 @Module({
   imports: [
@@ -20,8 +22,8 @@ import { CourseObservation, CourseObservationSchema } from './schemas/course-obs
       { name: CourseObservation.name, schema: CourseObservationSchema },
     ]),
   ],
-  controllers: [CoursesController],
-  providers: [CoursesService],
+  controllers: [CoursesController, AttendanceSessionsController],
+  providers: [CoursesService, AttendanceSessionsService],
   exports: [CoursesService],
 })
 export class CoursesModule {}

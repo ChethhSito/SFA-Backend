@@ -11,7 +11,7 @@ describe('Attendance persistence', () => {
     const { model, service, response } = setup();
     expect(await service.saveAttendance('course-1', '19/10/2026', { '12345678': 'Falta' }, 3)).toBe(response);
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { courseId: 'course-1', date: { $in: ['2026-10-19', '19/10/2026'] } },
+      { courseId: 'course-1', programmingId: { $exists: false }, date: { $in: ['2026-10-19', '19/10/2026'] } },
       { $set: { date: '2026-10-19', 'statusMap.12345678': 'Falta', week: 3 }, $setOnInsert: { courseId: 'course-1' } },
       expect.objectContaining({ upsert: true, returnDocument: 'after', setDefaultsOnInsert: false }),
     );

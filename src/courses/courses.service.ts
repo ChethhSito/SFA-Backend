@@ -94,7 +94,7 @@ export class CoursesService {
     // Update only the submitted students. Concurrent edits of other students
     // do not replace the complete status map; historical dates are normalized.
     return this.attendanceModel.findOneAndUpdate(
-      { courseId, date: { $in: [isoDate, legacyDate] } },
+      { courseId, programmingId: { $exists: false }, date: { $in: [isoDate, legacyDate] } },
       { $set: fields, $setOnInsert: { courseId } },
       { upsert: true, returnDocument: 'after', runValidators: true, setDefaultsOnInsert: false },
     ).exec();
