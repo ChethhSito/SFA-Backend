@@ -88,8 +88,15 @@ export class EnrollmentsService {
 
   async create(createEnrollmentDto: any): Promise<EnrollmentDocument> {
     await this.assertActive(createEnrollmentDto.studentDni);
-    const createdEnrollment = new this.enrollmentModel(createEnrollmentDto);
-    return createdEnrollment.save();
+    const { _id, id, ...cleanData } = createEnrollmentDto;
+    const saved = await this.enrollmentModel
+      .findOneAndUpdate(
+        { studentDni: cleanData.studentDni },
+        { $set: cleanData },
+        { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
+      )
+      .exec();
+    return saved as EnrollmentDocument;
   }
 
   async findAll(): Promise<EnrollmentDocument[]> {
@@ -118,8 +125,34 @@ export class EnrollmentsService {
   async update(studentDni: string, updateEnrollmentDto: any): Promise<EnrollmentDocument> {
     if (updateEnrollmentDto.academicStatus === 'MATRICULADO') await this.assertActive(studentDni);
     const { _id, id, ...cleanData } = updateEnrollmentDto;
+    cleanData.studentDni = studentDni;
+
+    const existing = await this.enrollmentModel.findOne({ studentDni }).exec();
+    if (existing) {
+      if (
+        cleanData.paymentStatus !== 'No Pagado' &&
+        cleanData.paymentType !== 'number' &&
+        !cleanData.paymentVoucherUrl &&
+        existing.paymentVoucherUrl
+      ) {
+        cleanData.paymentVoucherUrl = existing.paymentVoucherUrl;
+      }
+      if (
+        cleanData.paymentStatus !== 'No Pagado' &&
+        cleanData.paymentType !== 'number' &&
+        !cleanData.paymentVoucherFileName &&
+        existing.paymentVoucherFileName
+      ) {
+        cleanData.paymentVoucherFileName = existing.paymentVoucherFileName;
+      }
+    }
+
     const updated = await this.enrollmentModel
-      .findOneAndUpdate({ studentDni }, { $set: cleanData }, { returnDocument: 'after' })
+      .findOneAndUpdate(
+        { studentDni },
+        { $set: cleanData },
+        { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
+      )
       .exec();
     if (!updated) {
       throw new NotFoundException(`Enrollment for student DNI ${studentDni} not found`);

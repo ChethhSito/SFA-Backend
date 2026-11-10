@@ -63,6 +63,12 @@ export class Enrollment {
   paymentOperation?: string;
 
   @Prop()
+  paymentType?: string;
+
+  @Prop()
+  paymentObservations?: string;
+
+  @Prop()
   paymentVoucherFileName?: string;
 
   @Prop()
