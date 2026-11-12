@@ -42,6 +42,25 @@ export class MailService {
 
   constructor(private configService: ConfigService) {}
 
+  async sendActivationEmail(data: { email: string; name: string; role: string; token: string }): Promise<{ success: boolean }> {
+    const apiKey = this.configService.get<string>('BREVO_API_KEY');
+    if (!apiKey) return { success: false };
+    const appUrl = (this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000').replace(/\/$/, '');
+    const url = `${appUrl}/ingresar?activation=${encodeURIComponent(data.token)}`;
+    const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': apiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sender: { email: this.configService.get<string>('BREVO_SENDER_EMAIL'), name: this.configService.get<string>('BREVO_SENDER_NAME') || 'IESTP San Francisco de Asís' },
+        to: [{ email: data.email, name: data.name }],
+        subject: 'Active su acceso institucional',
+        htmlContent: `<p>Hola, ${escape(data.name)}.</p><p>Se le asignó acceso institucional con el rol ${escape(data.role)}.</p><p><a href="${url}">Active su cuenta y elija una contraseña</a>.</p><p>El enlace vence en 24 horas.</p>`,
+      }),
+    }).catch(() => null);
+    return { success: Boolean(response?.ok) };
+  }
+
   async sendWelcomeEmail(data: SendWelcomeEmailDto): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!data || !data.email || !data.email.trim()) {
       this.logger.debug('Solicitud recibida sin dirección de correo electrónico. Se omite el envío transaccional.');

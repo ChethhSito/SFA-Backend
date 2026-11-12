@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
 import { createHash } from 'node:crypto';
-import { Model } from 'mongoose';
+import { Connection, Model } from 'mongoose';
 import { BankImport, BankImportDocument } from './bank-import.schema';
 import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
 import { Applicant, ApplicantDocument } from '../applicants/schemas/applicant.schema';
@@ -109,6 +110,7 @@ export class BankReconciliationService {
     @InjectModel(Enrollment.name) private readonly enrollments: Model<EnrollmentDocument>,
     @InjectModel(ServiceRequest.name) private readonly requests: Model<ServiceRequestDocument>,
     @InjectModel(AcademicGroup.name) private readonly groups: Model<any>,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   private async verifySource(o: VoucherObligation): Promise<boolean> {
@@ -120,14 +122,17 @@ export class BankReconciliationService {
         operation(request.paymentOperation) === op && request.paymentDate === o.voucherDetails?.paymentDate &&
         cents(request.amountPaid || 0) === cents(o.voucherDetails?.amountPaid || 0);
     }
+    const conceptsRecord = await this.connection.collection('maf_state').findOne({ key: 'concepts' });
+    const currentConcept = (Array.isArray(conceptsRecord?.items) ? conceptsRecord.items : []).find((item: any) => item.code === o.conceptCode && item.active !== false);
+    const matchesCatalog = currentConcept && cents(Number(currentConcept.amount)) === cents(o.finalAmount);
     if (o.conceptCode === 'ADM01' && o.id === `OBL-ADM-${o.studentDni}`) {
       const applicant = await this.applicants.findOne({ dni: o.studentDni }).lean();
-      return !!applicant && cents(o.finalAmount) === 120 && operation(applicant.paymentOperation || '') === op &&
+      return !!applicant && matchesCatalog && operation(applicant.paymentOperation || '') === op &&
         ['POR_VERIFICAR', 'En Proceso', 'Pendiente', 'Pagado'].includes(applicant.paymentStatus);
     }
     if (o.conceptCode === 'MAT01' && o.id === `OBL-MAT-${o.studentDni}`) {
       const enrollment = await this.enrollments.findOne({ studentDni: o.studentDni }).lean();
-      return !!enrollment && cents(o.finalAmount) === 250 && operation(enrollment.paymentOperation || '') === op &&
+      return !!enrollment && matchesCatalog && operation(enrollment.paymentOperation || '') === op &&
         ['POR_VERIFICAR', 'En Proceso', 'Pendiente', 'Pagado'].includes(enrollment.paymentStatus);
     }
     return false;

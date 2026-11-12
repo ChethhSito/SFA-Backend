@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { MailService } from '../mail/mail.service';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -10,7 +12,50 @@ const BCRYPT_SALT_ROUNDS = 10;
 
 @Injectable()
 export class UsersService implements OnModuleInit {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  private readonly sessionSecret = process.env.SFA_SESSION_SECRET || randomBytes(32).toString('hex');
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>, private readonly mailService: MailService) {}
+
+  private safe(user: UserDocument) {
+    const data = user.toObject();
+    delete data.password; delete data.activationTokenHash; delete data.activationExpiresAt;
+    return data;
+  }
+
+  async login(identifier: string, password: string) {
+    const user = await this.userModel.findOne({ $or: [{ email: identifier.toLowerCase() }, { dni: identifier }] });
+    if (!user || !user.password || !(await this.verifyPassword(password, user.password)) || !['Activo', 'ACTIVO'].includes(user.status))
+      throw new UnauthorizedException('Credenciales inválidas o cuenta inactiva.');
+    const payload = Buffer.from(JSON.stringify({ id: user._id.toString(), exp: Date.now() + 8 * 60 * 60 * 1000 })).toString('base64url');
+    const signature = createHmac('sha256', this.sessionSecret).update(payload).digest('base64url');
+    return { token: `${payload}.${signature}`, user: this.safe(user) };
+  }
+
+  async userFromToken(token: string) {
+    const [payload, signature] = String(token || '').split('.');
+    if (!payload || !signature) throw new UnauthorizedException();
+    const expected = createHmac('sha256', this.sessionSecret).update(payload).digest();
+    const received = Buffer.from(signature, 'base64url');
+    if (received.length !== expected.length || !timingSafeEqual(received, expected)) throw new UnauthorizedException();
+    let data: { id: string; exp: number };
+    try { data = JSON.parse(Buffer.from(payload, 'base64url').toString()); } catch { throw new UnauthorizedException(); }
+    if (data.exp < Date.now()) throw new UnauthorizedException();
+    const user = await this.userModel.findById(data.id);
+    if (!user || !['Activo', 'ACTIVO'].includes(user.status)) throw new UnauthorizedException();
+    return user;
+  }
+
+  async activate(token: string, password: string) {
+    if (!token || password?.length < 10) throw new BadRequestException('El enlace y una clave de al menos 10 caracteres son obligatorios.');
+    const activationTokenHash = createHash('sha256').update(token).digest('hex');
+    const user = await this.userModel.findOne({ activationTokenHash, activationExpiresAt: { $gt: new Date() } }).select('+activationTokenHash +activationExpiresAt');
+    if (!user) throw new BadRequestException('El enlace de activación venció o ya fue utilizado.');
+    user.password = await this.hashPassword(password);
+    user.activationTokenHash = undefined;
+    user.activationExpiresAt = undefined;
+    user.status = 'Activo';
+    await user.save();
+    return { activated: true };
+  }
 
   async onModuleInit() {
     await this.seedInitialUsers();
@@ -173,17 +218,38 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
-  async create(createDto: CreateUserDto): Promise<UserDocument> {
-    const data = { ...createDto };
-    if (data.password) {
-      data.password = await this.hashPassword(data.password);
+  async create(createDto: CreateUserDto) {
+    const allowed = ['administrador', 'mpa', 'mge', 'maf', 'docente'];
+    if (!allowed.includes(createDto.role || '')) throw new ForbiddenException('SuperAdmin solo puede crear accesos institucionales de gestores y docentes.');
+    if (!/^\d{8}$/.test(createDto.dni || '')) throw new BadRequestException('El DNI debe tener 8 dígitos.');
+    const email = createDto.email.trim().toLowerCase();
+    if (await this.userModel.exists({ $or: [{ email }, { dni: createDto.dni }] })) throw new ConflictException('Ya existe una cuenta con ese DNI o correo.');
+    if (createDto.role === 'docente') {
+      const teacher = await this.userModel.db.collection('academic_teachers').findOne({ dni: createDto.dni, status: 'Disponible' });
+      if (!teacher) throw new BadRequestException('Primero declare al docente como Disponible en MPA.');
     }
-    const created = new this.userModel(data);
-    return created.save();
+    const token = randomBytes(32).toString('base64url');
+    const created = await this.userModel.create({ ...createDto, email, password: undefined, status: 'Pendiente', activationTokenHash: createHash('sha256').update(token).digest('hex'), activationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
+    const sent = await this.mailService.sendActivationEmail({ email, name: created.displayName, role: created.role, token });
+    return { user: this.safe(created), invitationSent: sent.success, invitationError: sent.success ? undefined : 'No se pudo enviar la invitación. Configure Brevo y reenvíela.' };
   }
 
-  async findAll(): Promise<UserDocument[]> {
-    return this.userModel.find().exec();
+  async findAll() {
+    const users = await this.userModel.find({ role: { $in: ['administrador', 'mpa', 'mge', 'maf', 'docente'] } }).select('-password -activationTokenHash -activationExpiresAt').lean().exec();
+    return users.map(user => ({ ...user, status: user.status === 'ACTIVO' ? 'Activo' : user.status }));
+  }
+
+  async resendInvitation(id: string) {
+    const user = await this.userModel.findOne(this.identityQuery(id));
+    if (!user) throw new NotFoundException();
+    if (user.role === 'superadmin' || user.role === 'alumno' || user.role === 'postulante') throw new ForbiddenException();
+    const token = randomBytes(32).toString('base64url');
+    user.activationTokenHash = createHash('sha256').update(token).digest('hex');
+    user.activationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.status = 'Pendiente';
+    await user.save();
+    const sent = await this.mailService.sendActivationEmail({ email: user.email, name: user.displayName, role: user.role, token });
+    return { invitationSent: sent.success };
   }
 
   async findByUid(uid: string): Promise<UserDocument> {
@@ -200,22 +266,33 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
-  async update(id: string, updateDto: UpdateUserDto): Promise<UserDocument> {
+  async update(id: string, updateDto: UpdateUserDto) {
     const { _id, ...cleanData } = updateDto as any;
-    if (cleanData.password) {
-      cleanData.password = await this.hashPassword(cleanData.password);
-    }
+    delete cleanData.password; delete cleanData.firebaseUid; delete cleanData.id;
+    if (cleanData.role && !['administrador', 'mpa', 'mge', 'maf', 'docente'].includes(cleanData.role)) throw new ForbiddenException();
+    const existing = await this.userModel.findOne(this.identityQuery(id));
+    if (!existing) throw new NotFoundException();
+    if (['superadmin', 'alumno', 'postulante'].includes(existing.role)) throw new ForbiddenException();
+    if (cleanData.status === 'Activo' && !existing.password) throw new BadRequestException('La cuenta debe activarse con el enlace enviado por correo.');
     const updated = await this.userModel
       .findOneAndUpdate(
-        { $or: [{ _id: id }, { id: id }, { dni: id }] },
+        { _id: existing._id },
         { $set: cleanData },
-        { returnDocument: 'after', upsert: true }
+        { returnDocument: 'after' }
       )
       .exec();
-    return updated;
+    if (!updated) throw new NotFoundException();
+    return this.safe(updated);
   }
 
   async remove(id: string): Promise<any> {
-    return this.userModel.deleteOne({ $or: [{ _id: id }, { id: id }, { dni: id }] }).exec();
+    const existing = await this.userModel.findOne(this.identityQuery(id));
+    if (!existing) throw new NotFoundException();
+    if (['superadmin', 'alumno', 'postulante'].includes(existing.role)) throw new ForbiddenException();
+    return this.userModel.deleteOne({ _id: existing._id }).exec();
+  }
+
+  private identityQuery(value: string) {
+    return { $or: [...(isValidObjectId(value) ? [{ _id: value }] : []), { id: value }, { dni: value }] };
   }
 }

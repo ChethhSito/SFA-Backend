@@ -8,9 +8,10 @@ import { Applicant, ApplicantSchema } from '../applicants/schemas/applicant.sche
 import { Enrollment, EnrollmentSchema } from '../enrollments/schemas/enrollment.schema';
 import { ServiceRequest, ServiceRequestSchema } from '../service-requests/service-request.schema';
 import { AcademicGroup, AcademicGroupSchema } from '../mpa/schemas/academic-planning.schemas';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([
+  imports: [UsersModule, MongooseModule.forFeature([
     { name: BankImport.name, schema: BankImportSchema },
     { name: Payment.name, schema: PaymentSchema },
     { name: Applicant.name, schema: ApplicantSchema },
