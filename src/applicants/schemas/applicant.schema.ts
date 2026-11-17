@@ -83,8 +83,20 @@ export class Applicant {
   @Prop()
   examScore?: number;
 
+  @Prop()
+  examClassroom?: string;
+
   @Prop({ type: MongooseSchema.Types.Mixed, default: false })
   admitted: boolean | string;
+
+  @Prop()
+  registeredAt?: string;
+
+  @Prop()
+  paymentValidatedAt?: string;
+
+  @Prop()
+  folderApprovedAt?: string;
 
   @Prop({ type: Object })
   docs?: {

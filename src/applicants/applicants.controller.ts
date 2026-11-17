@@ -26,8 +26,12 @@ export class ApplicantsController {
   }
 
   @Put(':dni')
+  updatePut(@Param('dni') dni: string, @Body() updateApplicantDto: any) {
+    return this.applicantsService.update(dni, updateApplicantDto);
+  }
+
   @Patch(':dni')
-  update(@Param('dni') dni: string, @Body() updateApplicantDto: any) {
+  updatePatch(@Param('dni') dni: string, @Body() updateApplicantDto: any) {
     return this.applicantsService.update(dni, updateApplicantDto);
   }
 
