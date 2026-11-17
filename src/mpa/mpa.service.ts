@@ -36,9 +36,10 @@ export class MpaService implements OnModuleInit {
   }
 
   async findAll(): Promise<Record<MpaKind, Record<string, unknown>[]>> {
-    const result = {} as Record<MpaKind, Record<string, unknown>[]>;
-    for (const kind of MPA_KINDS) result[kind] = await this.findOne(kind);
-    return result;
+    const entries = await Promise.all(
+      MPA_KINDS.map(async (kind) => [kind, await this.findOne(kind)] as const)
+    );
+    return Object.fromEntries(entries) as Record<MpaKind, Record<string, unknown>[]>;
   }
 
   async findOne(kind: string): Promise<Record<string, unknown>[]> {
