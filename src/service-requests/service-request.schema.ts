@@ -65,6 +65,12 @@ export class ServiceRequest {
   @Prop({ default: '' })
   resultFileName?: string;
 
+  @Prop()
+  deliveredByDni?: string;
+
+  @Prop()
+  deliveredAt?: Date;
+
   @Prop({ type: Buffer, select: false })
   resultPdf?: Buffer;
 }

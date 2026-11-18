@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors, UseGuards, Res, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { ServiceRequestsService } from './service-requests.service';
+import { SecretariaSessionGuard } from '../users/staff-session.guard';
 
 @Controller('service-requests')
 export class ServiceRequestsController {
@@ -10,6 +11,12 @@ export class ServiceRequestsController {
   @Get()
   list(@Query('studentDni') studentDni?: string, @Query('teacherDni') teacherDni?: string) {
     return this.service.list(studentDni, teacherDni);
+  }
+
+  @Get('secretaria/queue')
+  @UseGuards(SecretariaSessionGuard)
+  secretaryQueue() {
+    return this.service.listForSecretary();
   }
 
   @Post()
@@ -28,9 +35,10 @@ export class ServiceRequestsController {
   }
 
   @Post(':id/result')
+  @UseGuards(SecretariaSessionGuard)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5_000_000 } }))
-  deliverResult(@Param('id') id: string, @UploadedFile() file: { mimetype: string; buffer: Buffer; originalname: string }) {
-    return this.service.deliverResult(id, file);
+  deliverResult(@Param('id') id: string, @UploadedFile() file: { mimetype: string; buffer: Buffer; originalname: string }, @Req() req) {
+    return this.service.deliverResult(id, file, req.staffUser.dni);
   }
 
   @Get(':id/result')

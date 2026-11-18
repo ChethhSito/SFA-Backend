@@ -219,7 +219,7 @@ export class UsersService implements OnModuleInit {
   }
 
   async create(createDto: CreateUserDto) {
-    const allowed = ['administrador', 'mpa', 'mge', 'maf', 'docente'];
+    const allowed = ['administrador', 'mpa', 'mge', 'maf', 'secretaria', 'docente'];
     if (!allowed.includes(createDto.role || '')) throw new ForbiddenException('SuperAdmin solo puede crear accesos institucionales de gestores y docentes.');
     if (!/^\d{8}$/.test(createDto.dni || '')) throw new BadRequestException('El DNI debe tener 8 dígitos.');
     const email = createDto.email.trim().toLowerCase();
@@ -235,7 +235,7 @@ export class UsersService implements OnModuleInit {
   }
 
   async findAll() {
-    const users = await this.userModel.find({ role: { $in: ['administrador', 'mpa', 'mge', 'maf', 'docente'] } }).select('-password -activationTokenHash -activationExpiresAt').lean().exec();
+    const users = await this.userModel.find({ role: { $in: ['administrador', 'mpa', 'mge', 'maf', 'secretaria', 'docente'] } }).select('-password -activationTokenHash -activationExpiresAt').lean().exec();
     return users.map(user => ({ ...user, status: user.status === 'ACTIVO' ? 'Activo' : user.status }));
   }
 
@@ -269,7 +269,7 @@ export class UsersService implements OnModuleInit {
   async update(id: string, updateDto: UpdateUserDto) {
     const { _id, ...cleanData } = updateDto as any;
     delete cleanData.password; delete cleanData.firebaseUid; delete cleanData.id;
-    if (cleanData.role && !['administrador', 'mpa', 'mge', 'maf', 'docente'].includes(cleanData.role)) throw new ForbiddenException();
+    if (cleanData.role && !['administrador', 'mpa', 'mge', 'maf', 'secretaria', 'docente'].includes(cleanData.role)) throw new ForbiddenException();
     const existing = await this.userModel.findOne(this.identityQuery(id));
     if (!existing) throw new NotFoundException();
     if (['superadmin', 'alumno', 'postulante'].includes(existing.role)) throw new ForbiddenException();

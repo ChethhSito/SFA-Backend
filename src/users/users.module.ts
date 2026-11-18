@@ -4,7 +4,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User, UserSchema } from './schemas/user.schema';
 import { MailModule } from '../mail/mail.module';
-import { MafSessionGuard, StaffSessionGuard } from './staff-session.guard';
+import { MafSessionGuard, SecretariaSessionGuard, StaffSessionGuard } from './staff-session.guard';
 
 @Module({
   imports: [
@@ -12,7 +12,7 @@ import { MafSessionGuard, StaffSessionGuard } from './staff-session.guard';
     MailModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, StaffSessionGuard, MafSessionGuard],
-  exports: [UsersService, StaffSessionGuard, MafSessionGuard],
+  providers: [UsersService, StaffSessionGuard, MafSessionGuard, SecretariaSessionGuard],
+  exports: [UsersService, StaffSessionGuard, MafSessionGuard, SecretariaSessionGuard],
 })
 export class UsersModule {}

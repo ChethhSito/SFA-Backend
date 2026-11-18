@@ -57,4 +57,26 @@ describe('ServiceRequestsService', () => {
     requests.findOne.mockReturnValueOnce({ lean: async () => ({ studentDni: student.dni, status: 'Validado' }) } as never);
     await expect(service.submitVoucher(id, { studentDni: student.dni, operationNumber: 'BN-1', paymentDate: '2026-10-20', amountPaid: 50 })).rejects.toThrow('ya está en revisión');
   });
+
+  it('emite un PDF solo para un trámite documental validado y registra Secretaría', async () => {
+    const file = { mimetype: 'application/pdf', originalname: 'constancia.pdf', buffer: Buffer.from('%PDF-1.4\nDemo') };
+    requests.findOneAndUpdate.mockReturnValueOnce({ select: () => ({ lean: async () => ({ deliveryStatus: 'Emitido' }) }) } as never);
+    await expect(service.deliverResult('SOL-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', file, '10000005'))
+      .resolves.toMatchObject({ deliveryStatus: 'Emitido' });
+    expect(requests.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'Validado', deliveryStatus: { $ne: 'Emitido' } }),
+      expect.objectContaining({ $set: expect.objectContaining({ deliveredByDni: '10000005', resultFileName: 'constancia.pdf' }) }),
+      { new: true },
+    );
+  });
+
+  it('impide emitir dos veces o adjuntar un archivo que no sea PDF', async () => {
+    await expect(service.deliverResult('SOL-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      { mimetype: 'application/pdf', originalname: 'falso.pdf', buffer: Buffer.from('falso') }, '10000005'))
+      .rejects.toBeInstanceOf(BadRequestException);
+    requests.findOneAndUpdate.mockReturnValueOnce({ select: () => ({ lean: async () => null }) } as never);
+    await expect(service.deliverResult('SOL-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      { mimetype: 'application/pdf', originalname: 'resultado.pdf', buffer: Buffer.from('%PDF-1.4\nDemo') }, '10000005'))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
 });

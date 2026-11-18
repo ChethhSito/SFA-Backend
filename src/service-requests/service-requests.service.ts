@@ -128,11 +128,21 @@ export class ServiceRequestsService {
     return updated;
   }
 
-  async deliverResult(id: string, file: { mimetype: string; buffer: Buffer; originalname: string }) {
+  async listForSecretary() {
+    return this.requests.find({
+      conceptCode: { $in: ['CER01', 'CON01', 'SUB01', 'CAR01', 'DOC01', 'DOC02'] },
+      $or: [{ status: 'Validado' }, { deliveryStatus: 'Emitido' }],
+    }).select('-resultPdf').sort({ updatedAt: -1 }).lean();
+  }
+
+  async deliverResult(id: string, file: { mimetype: string; buffer: Buffer; originalname: string }, deliveredByDni: string) {
     if (!file || file.mimetype !== 'application/pdf' || !file.buffer?.length || file.buffer.length > 5_000_000 || file.buffer.subarray(0, 5).toString() !== '%PDF-')
       throw new BadRequestException('Adjunte un PDF válido de hasta 5 MB.');
-    const updated = await this.requests.findOneAndUpdate({ id, status: 'Validado' }, {
-      $set: { deliveryStatus: 'Emitido', resultFileName: file.originalname.slice(0, 180), resultPdf: file.buffer },
+    const updated = await this.requests.findOneAndUpdate({
+      id, status: 'Validado', deliveryStatus: { $ne: 'Emitido' },
+      conceptCode: { $in: ['CER01', 'CON01', 'SUB01', 'CAR01', 'DOC01', 'DOC02'] },
+    }, {
+      $set: { deliveryStatus: 'Emitido', resultFileName: file.originalname.slice(0, 180), resultPdf: file.buffer, deliveredByDni, deliveredAt: new Date() },
     }, { new: true }).select('-resultPdf').lean();
     if (!updated) throw new BadRequestException('El pago debe estar validado antes de emitir el documento.');
     return updated;

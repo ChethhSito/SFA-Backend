@@ -34,7 +34,7 @@ export class CreateUserDto {
   phone?: string;
 
   @IsEnum(
-    ['administrador', 'postulante', 'alumno', 'docente', 'mpa', 'mge', 'maf', 'superadmin'],
+    ['administrador', 'postulante', 'alumno', 'docente', 'mpa', 'mge', 'maf', 'secretaria', 'superadmin'],
     { message: 'El rol asignado no es válido' }
   )
   @IsOptional()

@@ -5,9 +5,10 @@ import { Teacher, TeacherSchema } from '../teachers/schemas/teacher.schema';
 import { ServiceRequest, ServiceRequestSchema } from './service-request.schema';
 import { ServiceRequestsController } from './service-requests.controller';
 import { ServiceRequestsService } from './service-requests.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([
+  imports: [UsersModule, MongooseModule.forFeature([
     { name: Student.name, schema: StudentSchema },
     { name: Teacher.name, schema: TeacherSchema },
     { name: ServiceRequest.name, schema: ServiceRequestSchema },

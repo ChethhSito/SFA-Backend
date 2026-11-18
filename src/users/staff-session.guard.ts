@@ -28,3 +28,17 @@ export class MafSessionGuard implements CanActivate {
     return true;
   }
 }
+
+@Injectable()
+export class SecretariaSessionGuard implements CanActivate {
+  constructor(private readonly users: UsersService) {}
+  async canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest();
+    const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token) throw new UnauthorizedException();
+    const user = await this.users.userFromToken(token);
+    if (!['secretaria', 'superadmin'].includes(user.role)) throw new ForbiddenException('Se requiere acceso a Secretaría.');
+    request.staffUser = user;
+    return true;
+  }
+}
