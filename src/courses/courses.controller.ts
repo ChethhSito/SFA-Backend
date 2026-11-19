@@ -51,7 +51,10 @@ export class CoursesController {
   @Get('materials/:id/file')
   async downloadMaterial(@Param('id') id: string, @Res() response: Response) {
     const file = await this.coursesService.getCourseFile('materials', id);
-    response.type(file.mimeType).attachment(file.fileName).send(file.data);
+    response.removeHeader('X-Frame-Options');
+    response.setHeader('Content-Type', file.mimeType || 'application/pdf');
+    response.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    response.send(file.data);
   }
 
   @Delete('materials/:id')
@@ -72,7 +75,10 @@ export class CoursesController {
   @Get('evidences/:id/file')
   async downloadEvidence(@Param('id') id: string, @Res() response: Response) {
     const file = await this.coursesService.getCourseFile('evidences', id);
-    response.type(file.mimeType).attachment(file.fileName).send(file.data);
+    response.removeHeader('X-Frame-Options');
+    response.setHeader('Content-Type', file.mimeType || 'application/pdf');
+    response.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    response.send(file.data);
   }
 
   @Delete('evidences/:id')
@@ -111,7 +117,10 @@ export class CoursesController {
   @Get('assignments/:id/file')
   async downloadAssignmentAttachment(@Param('id') id: string, @Res() response: Response) {
     const file = await this.coursesService.getCourseFile('assignments', id);
-    response.type(file.mimeType).attachment(file.fileName).send(file.data);
+    response.removeHeader('X-Frame-Options');
+    response.setHeader('Content-Type', file.mimeType || 'application/pdf');
+    response.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    response.send(file.data);
   }
 
   @Patch('assignments/:id')
