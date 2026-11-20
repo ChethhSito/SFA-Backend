@@ -256,9 +256,23 @@ export class CoursesService {
   }
 
   async deleteAssignment(id: string) {
-    const deleted = await this.assignmentModel.findByIdAndDelete(id).exec();
-    if (!deleted) throw new NotFoundException('Evaluación no encontrada.');
-    await this.removeCourseFile(deleted.storedFileName);
+    let deleted: any = null;
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    if (isValidObjectId) {
+      deleted = await this.assignmentModel.findByIdAndDelete(id).exec();
+    }
+    if (!deleted) {
+      deleted = await this.assignmentModel.findOneAndDelete({ 
+        $or: [
+          { _id: isValidObjectId ? id : undefined },
+          { title: id },
+          { title: decodeURIComponent(id) }
+        ].filter(Boolean)
+      }).exec();
+    }
+    if (deleted) {
+      await this.removeCourseFile(deleted.storedFileName);
+    }
     return { success: true };
   }
 

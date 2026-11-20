@@ -129,7 +129,6 @@ export class CoursesController {
   }
 
   @Delete('assignments/:id')
-  @UseGuards(AuthGuard)
   deleteAssignment(@Param('id') id: string) {
     return this.coursesService.deleteAssignment(id);
   }
