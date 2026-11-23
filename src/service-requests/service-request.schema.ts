@@ -17,7 +17,7 @@ export class ServiceRequest {
   @Prop({ required: true })
   studentName: string;
 
-  @Prop({ required: true, enum: ['ADM01', 'MAT01', 'CER01', 'CON01', 'SUB01', 'CAR01', 'DOC01', 'DOC02'] })
+  @Prop({ required: true, enum: ['ADM01', 'MAT01', 'CER01', 'CON01', 'EGR01', 'PRA01', 'BAC01', 'TIT01', 'SUB01', 'CAR01', 'DOC01', 'DOC02'] })
   conceptCode: string;
 
   @Prop({ required: true })

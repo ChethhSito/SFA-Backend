@@ -10,7 +10,11 @@ const procedures = {
   ADM01: { name: 'Derecho de Examen de Admisión Ordinario', amount: 120 },
   MAT01: { name: 'Matrícula Semestral Regular', amount: 250 },
   CER01: { name: 'Certificado de Estudios Oficial', amount: 50 },
-  CON01: { name: 'Constancia de Matrícula Institucional', amount: 30 },
+  CON01: { name: 'Constancia de Matrícula Institucional', amount: 20 },
+  EGR01: { name: 'Constancia de Culminación de Estudios (Egreso Lectivo)', amount: 35 },
+  PRA01: { name: 'Certificado de Prácticas Preprofesionales (EFSRT)', amount: 30 },
+  BAC01: { name: 'Constancia de Egresado Pleno y Bachiller Técnico', amount: 60 },
+  TIT01: { name: 'Apertura de Carpeta de Titulación Profesional', amount: 120 },
   SUB01: { name: 'Derecho de Examen de Subsanación', amount: 45 },
   CAR01: { name: 'Duplicado de Carné de Estudiante', amount: 15 },
   DOC01: { name: 'Constancia de Trabajo Docente', amount: 30 },
@@ -50,7 +54,8 @@ export class ServiceRequestsService {
       ? configured.amount! : procedure.amount;
     if (input.source !== 'estudiante' && input.source !== 'docente' && input.source !== 'llamada_apoderado')
       throw new BadRequestException('Origen de solicitud inválido.');
-    if (input.source === 'estudiante' && code !== 'CER01' && code !== 'CON01')
+    const studentAllowed = ['CER01', 'CON01', 'EGR01', 'PRA01', 'BAC01', 'TIT01'];
+    if (input.source === 'estudiante' && !studentAllowed.includes(code))
       throw new BadRequestException('El trámite no está disponible en el portal del estudiante.');
     if (isTeacher && code !== 'DOC01' && code !== 'DOC02') throw new BadRequestException('El trámite no está disponible para el docente.');
     if (!isTeacher && (code === 'DOC01' || code === 'DOC02')) throw new BadRequestException('El trámite requiere un docente registrado.');
