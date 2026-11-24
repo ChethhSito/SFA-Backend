@@ -31,11 +31,12 @@ export class CertificatesService {
       new Date(body.issuedDate).toISOString().slice(0, 10) !== body.issuedDate || body.issuedDate > today) {
       throw new BadRequestException('Ingrese la fecha real de emisión, hasta hoy.');
     }
+    const sanitizedData = (body.fileData || '').replace(/\s+/g, '');
     if (typeof body.fileName !== 'string' || !body.fileName.toLowerCase().endsWith('.pdf') || typeof body.fileData !== 'string' ||
-      body.fileData.length > 7_000_000 || body.fileData.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.fileData)) {
+      sanitizedData.length > 7_000_000 || sanitizedData.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(sanitizedData)) {
       throw new BadRequestException('Adjunte un PDF válido de hasta 5 MB.');
     }
-    const bytes = Buffer.from(body.fileData, 'base64');
+    const bytes = Buffer.from(sanitizedData, 'base64');
     if (bytes.length > 5 * 1024 * 1024 || bytes.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('El archivo no es un PDF válido de hasta 5 MB.');
     try { if (!(await PDFDocument.load(bytes)).getPageCount()) throw new Error('Empty PDF'); }
     catch { throw new BadRequestException('No se pudo leer el PDF. Use un documento válido sin contraseña.'); }
@@ -57,7 +58,7 @@ export class CertificatesService {
     try {
       const saved = await this.certificateModel.create({ studentDni: body.studentDni, studentName: `${student.name} ${student.lastName}`.trim(), number,
         issuedDate: body.issuedDate, issuerName: body.issuerName.trim(), fileName: body.fileName.replace(/[^\p{L}\p{N}_. -]/gu, '_').slice(-120),
-        fileData: body.fileData, sha256, verificationCode: randomUUID(), registeredAt: new Date(), registeredBy: actor, active: true });
+        fileData: sanitizedData, sha256, verificationCode: randomUUID(), registeredAt: new Date(), registeredBy: actor, active: true });
       const { fileData: omitted, ...metadata } = saved.toObject();
       return metadata;
     } catch (error) {
