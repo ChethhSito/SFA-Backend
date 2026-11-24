@@ -106,7 +106,15 @@ export class ServiceRequestsService {
     return updated;
   }
 
-  async submitVoucher(id: string, input: { studentDni?: string; teacherDni?: string; operationNumber?: string; paymentDate?: string; amountPaid?: number }) {
+  async submitVoucher(id: string, input: {
+    studentDni?: string;
+    teacherDni?: string;
+    operationNumber?: string;
+    paymentDate?: string;
+    amountPaid?: number;
+    voucherUrl?: string;
+    voucherFileName?: string;
+  }) {
     if (!/^SOL-[0-9a-f-]{36}$/i.test(id)) throw new BadRequestException('Solicitud inválida.');
     const dni = String(input?.studentDni || input?.teacherDni || '').trim();
     if (!/^\d{8}$/.test(dni)) throw new BadRequestException('DNI inválido.');
@@ -124,9 +132,20 @@ export class ServiceRequestsService {
       throw new BadRequestException('Ingrese la fecha del voucher.');
     if (!Number.isFinite(amountPaid) || amountPaid <= 0 || amountPaid > 100000)
       throw new BadRequestException('Ingrese el monto pagado.');
+    const voucherUrl = String(input?.voucherUrl || '').trim();
+    const voucherFileName = String(input?.voucherFileName || '').trim();
     const updated = await this.requests.findOneAndUpdate(
       { id, ...owner, status: { $in: ['Pendiente', 'Observado'] } },
-      { status: 'En Proceso', paymentOperation: operationNumber, paymentDate, amountPaid, bankName: 'Banco de la Nación', voucherRegisteredAt: new Date() },
+      {
+        status: 'En Proceso',
+        paymentOperation: operationNumber,
+        paymentDate,
+        amountPaid,
+        bankName: 'Banco de la Nación',
+        voucherRegisteredAt: new Date(),
+        ...(voucherUrl ? { voucherUrl } : {}),
+        ...(voucherFileName ? { voucherFileName } : {}),
+      },
       { new: true },
     ).lean();
     if (!updated) throw new ConflictException('La solicitud cambió de estado. Actualice la página.');

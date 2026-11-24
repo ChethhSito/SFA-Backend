@@ -59,6 +59,12 @@ export class ServiceRequest {
   @Prop({ default: '' })
   bankName?: string;
 
+  @Prop({ default: '' })
+  voucherUrl?: string;
+
+  @Prop({ default: '' })
+  voucherFileName?: string;
+
   @Prop({ default: 'Pendiente', enum: ['Pendiente', 'Emitido'] })
   deliveryStatus?: string;
 
