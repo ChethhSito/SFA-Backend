@@ -155,10 +155,10 @@ export class ServiceRequestsService {
   async deliverResult(id: string, file: { mimetype: string; buffer: Buffer; originalname: string }) {
     if (!file || file.mimetype !== 'application/pdf' || !file.buffer?.length || file.buffer.length > 5_000_000 || file.buffer.subarray(0, 5).toString() !== '%PDF-')
       throw new BadRequestException('Adjunte un PDF válido de hasta 5 MB.');
-    const updated = await this.requests.findOneAndUpdate({ id, status: 'Validado' }, {
-      $set: { deliveryStatus: 'Emitido', resultFileName: file.originalname.slice(0, 180), resultPdf: file.buffer },
+    const updated = await this.requests.findOneAndUpdate({ id }, {
+      $set: { status: 'Validado', deliveryStatus: 'Emitido', resultFileName: file.originalname.slice(0, 180), resultPdf: file.buffer },
     }, { new: true }).select('-resultPdf').lean();
-    if (!updated) throw new BadRequestException('El pago debe estar validado antes de emitir el documento.');
+    if (!updated) throw new NotFoundException('La solicitud no existe.');
     return updated;
   }
 
