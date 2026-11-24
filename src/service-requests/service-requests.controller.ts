@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { ServiceRequestsService } from './service-requests.service';
@@ -37,5 +37,10 @@ export class ServiceRequestsController {
   async resultPdf(@Param('id') id: string, @Query('dni') dni: string, @Res() response: Response) {
     const result = await this.service.resultPdf(id, dni);
     response.type('application/pdf').setHeader('Content-Disposition', `attachment; filename="${result.name.replace(/[^a-zA-Z0-9._-]/g, '_')}"`).send(result.data);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Query('dni') dni?: string) {
+    return this.service.remove(id, dni);
   }
 }

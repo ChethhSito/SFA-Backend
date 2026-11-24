@@ -148,4 +148,15 @@ export class ServiceRequestsService {
     if (!request || request.deliveryStatus !== 'Emitido' || !request.resultPdf) throw new NotFoundException('Documento no disponible.');
     return { name: request.resultFileName || 'resultado.pdf', data: request.resultPdf };
   }
+
+  async remove(id: string, dni?: string) {
+    if (!/^SOL-[0-9a-f-]{36}$/i.test(id)) throw new BadRequestException('Solicitud inválida.');
+    const filter: any = { id };
+    if (dni) {
+      filter.$or = [{ studentDni: dni }, { teacherDni: dni }];
+    }
+    const deleted = await this.requests.findOneAndDelete(filter).lean();
+    if (!deleted) throw new NotFoundException('La solicitud no existe o ya fue eliminada.');
+    return { success: true, id };
+  }
 }
