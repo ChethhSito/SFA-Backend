@@ -255,6 +255,46 @@ export class CoursesService {
 
   async updateAssignment(id: string, dto: any): Promise<CourseAssignmentDocument> {
     this.validateAssignmentGrades(dto);
+
+    // Ruta rápida en MongoDB para calificación/feedback sin descargar ni reenviar fileBase64 (evita esperas de 15s+)
+    const isGradeOnlyPatch =
+      typeof this.assignmentModel.findOneAndUpdate === 'function' &&
+      dto.title === undefined &&
+      dto.description === undefined &&
+      dto.dueDate === undefined &&
+      dto.rubric === undefined &&
+      dto.attachment === undefined &&
+      Array.isArray(dto.submissions) &&
+      dto.submissions.length > 0 &&
+      dto.submissions.every((s: any) => !s.fileBase64);
+
+    if (isGradeOnlyPatch) {
+      const existingLite: any = await this.assignmentModel
+        .findById(id)
+        .select('submissions.studentDni')
+        .lean()
+        .exec();
+      if (!existingLite) throw new NotFoundException('Evaluación no encontrada.');
+      const existingDnis = new Set((existingLite.submissions || []).map((s: any) => s.studentDni));
+      const allExist = dto.submissions.every((s: any) => existingDnis.has(s.studentDni));
+      if (allExist) {
+        const setOps: Record<string, unknown> = {};
+        const arrayFilters: Record<string, unknown>[] = [];
+        dto.submissions.forEach((sub: any, idx: number) => {
+          const alias = `s${idx}`;
+          arrayFilters.push({ [`${alias}.studentDni`]: sub.studentDni });
+          if (sub.grade !== undefined) setOps[`submissions.$[${alias}].grade`] = sub.grade;
+          if (sub.feedback !== undefined) setOps[`submissions.$[${alias}].feedback`] = sub.feedback;
+        });
+        const fastSaved: any = await this.assignmentModel
+          .findByIdAndUpdate(id, { $set: setOps }, { new: true, arrayFilters })
+          .select('-contentBase64 -submissions.fileBase64')
+          .lean()
+          .exec();
+        if (fastSaved) return fastSaved;
+      }
+    }
+
     const assignment = await this.assignmentModel.findById(id).exec();
     if (!assignment) throw new NotFoundException('Evaluación no encontrada.');
     // IDs and course ownership are not replaced by an update request.
@@ -272,7 +312,16 @@ export class CoursesService {
       assignment.submissions = [...merged.values()];
       assignment.markModified('submissions');
     }
-    return assignment.save();
+    const saved = await assignment.save();
+    const plain: any = saved.toObject ? saved.toObject() : saved;
+    delete plain.contentBase64;
+    if (Array.isArray(plain.submissions)) {
+      plain.submissions = plain.submissions.map((sub: any) => {
+        const { fileBase64, ...rest } = sub || {};
+        return { ...rest, hasFile: Boolean(fileBase64 || rest.hasFile) };
+      });
+    }
+    return plain;
   }
 
   async deleteAssignment(id: string) {

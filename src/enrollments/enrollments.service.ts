@@ -145,6 +145,14 @@ export class EnrollmentsService {
 
     const existing = await this.enrollmentModel.findOne({ studentDni }).exec();
     if (existing) {
+      // Proteger contra sobreescritura accidental por creación tardía de matrícula sin datos de pago
+      if (
+        cleanData.paymentStatus === 'No Pagado' &&
+        !('paymentOperation' in cleanData) &&
+        ['Pendiente', 'Validado', 'Observado'].includes(existing.paymentStatus)
+      ) {
+        delete cleanData.paymentStatus;
+      }
       if (
         cleanData.paymentStatus !== 'No Pagado' &&
         cleanData.paymentType !== 'number' &&
