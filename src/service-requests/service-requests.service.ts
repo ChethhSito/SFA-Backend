@@ -33,7 +33,24 @@ export class ServiceRequestsService {
   async list(studentDni?: string, teacherDni?: string) {
     if (studentDni && !/^\d{8}$/.test(studentDni)) throw new BadRequestException('DNI inválido.');
     if (teacherDni && !/^\d{8}$/.test(teacherDni)) throw new BadRequestException('DNI docente inválido.');
-    return this.requests.find(studentDni ? { studentDni } : teacherDni ? { teacherDni } : {}).sort({ createdAt: -1 }).lean();
+    // Listado liviano ejecutado directo en MongoDB: el voucher se obtiene bajo demanda con voucher(id).
+    return this.requests
+      .aggregate([
+        { $match: studentDni ? { studentDni } : teacherDni ? { teacherDni } : {} },
+        { $sort: { createdAt: -1 } },
+        { $addFields: { hasVoucher: { $ne: [{ $ifNull: ['$voucherUrl', ''] }, ''] } } },
+        { $unset: ['voucherUrl', 'resultPdf'] },
+      ])
+      .exec();
+  }
+
+  async voucher(id: string, dni?: string) {
+    if (!/^SOL-[0-9a-f-]{36}$/i.test(id)) throw new BadRequestException('Solicitud inválida.');
+    const filter: any = { id };
+    if (dni) filter.$or = [{ studentDni: dni }, { teacherDni: dni }];
+    const request: any = await this.requests.findOne(filter).select('voucherUrl voucherFileName').lean();
+    if (!request) throw new NotFoundException('La solicitud no existe.');
+    return { voucherUrl: request.voucherUrl || '', voucherFileName: request.voucherFileName || '' };
   }
 
   async create(input: { studentDni?: string; teacherDni?: string; conceptCode?: string; source?: string; period?: string; reason?: string; requestedBy?: string; contactPhone?: string }) {

@@ -99,10 +99,18 @@ export class EnrollmentsService {
     return saved as EnrollmentDocument;
   }
 
+  /**
+   * Listado liviano ejecutado directo en MongoDB: excluye paymentVoucherUrl del tráfico de red
+   * y expone hasPaymentVoucher. El detalle completo se obtiene bajo demanda con findByDni.
+   */
   async findAll(): Promise<EnrollmentDocument[]> {
-    const list = await this.enrollmentModel.find().exec();
-    return list.map((item) => {
-      const doc = item.toObject ? item.toObject() : item;
+    const list = await this.enrollmentModel
+      .aggregate([
+        { $addFields: { hasPaymentVoucher: { $ne: [{ $ifNull: ['$paymentVoucherUrl', ''] }, ''] } } },
+        { $unset: 'paymentVoucherUrl' },
+      ])
+      .exec();
+    return list.map((doc: any) => {
       if (doc.shift) {
         doc.shift = doc.shift.replace(/Ma[\uFFFD\?a-zA-Z]*ana/gi, 'Mañana').replace(/Maana/gi, 'Mañana');
       }

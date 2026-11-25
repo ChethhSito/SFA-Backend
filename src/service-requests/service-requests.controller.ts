@@ -17,6 +17,11 @@ export class ServiceRequestsController {
     return this.service.create(body);
   }
 
+  @Get(':id/voucher')
+  voucher(@Param('id') id: string, @Query('dni') dni?: string) {
+    return this.service.voucher(id, dni);
+  }
+
   @Post(':id/voucher')
   submitVoucher(@Param('id') id: string, @Body() body: Parameters<ServiceRequestsService['submitVoucher']>[1]) {
     return this.service.submitVoucher(id, body);

@@ -67,8 +67,33 @@ export class ApplicantsService {
     return createdApplicant.save();
   }
 
-  async findAll(): Promise<ApplicantDocument[]> {
-    return this.applicantModel.find().exec();
+  /**
+   * Listado liviano ejecutado directo en MongoDB: nunca transfiere los base64 (fileDataUrl / paymentVoucherUrl)
+   * por red desde Atlas. El detalle completo se obtiene bajo demanda con findByDni.
+   */
+  async findAll(): Promise<any[]> {
+    return this.applicantModel
+      .aggregate([
+        {
+          $addFields: {
+            hasPaymentVoucher: { $ne: [{ $ifNull: ['$paymentVoucherUrl', ''] }, ''] },
+            'docs.dniFile.hasFile': { $ne: [{ $ifNull: ['$docs.dniFile.fileDataUrl', ''] }, ''] },
+            'docs.certificadoFile.hasFile': { $ne: [{ $ifNull: ['$docs.certificadoFile.fileDataUrl', ''] }, ''] },
+            'docs.partidaFile.hasFile': { $ne: [{ $ifNull: ['$docs.partidaFile.fileDataUrl', ''] }, ''] },
+            'docs.fotoFile.hasFile': { $ne: [{ $ifNull: ['$docs.fotoFile.fileDataUrl', ''] }, ''] },
+          },
+        },
+        {
+          $unset: [
+            'paymentVoucherUrl',
+            'docs.dniFile.fileDataUrl',
+            'docs.certificadoFile.fileDataUrl',
+            'docs.partidaFile.fileDataUrl',
+            'docs.fotoFile.fileDataUrl',
+          ],
+        },
+      ])
+      .exec();
   }
 
   async findByDni(identifier: string): Promise<ApplicantDocument | null> {
