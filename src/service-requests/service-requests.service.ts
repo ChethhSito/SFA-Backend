@@ -89,20 +89,32 @@ export class ServiceRequestsService {
   async updatePayment(id: string, input: { status?: string; paymentOperation?: string; paymentDate?: string; amountPaid?: number; bankName?: string }) {
     if (!/^SOL-[0-9a-f-]{36}$/i.test(id)) throw new BadRequestException('Solicitud inválida.');
     const status = String(input?.status || '');
-    if (!['Pendiente', 'En Proceso', 'Observado'].includes(status))
-      throw new BadRequestException('La validación del pago solo se realiza mediante conciliación bancaria.');
-    const paymentOperation = String(input.paymentOperation || '').trim();
-    if (paymentOperation.length > 100) throw new BadRequestException('Operación demasiado larga.');
-    const paymentDate = String(input.paymentDate || '').trim();
-    if (paymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new BadRequestException('Fecha de pago inválida.');
-    const amountPaid = Number(input.amountPaid || 0);
-    if (!Number.isFinite(amountPaid) || amountPaid < 0) throw new BadRequestException('Monto pagado inválido.');
-    const bankName = String(input.bankName || '').trim();
-    if (bankName.length > 100) throw new BadRequestException('Banco inválido.');
-    const updated = await this.requests.findOneAndUpdate({ id, status: { $ne: 'Validado' } },
-      { status, paymentOperation, paymentDate, amountPaid, bankName,
-        ...(status === 'En Proceso' && paymentOperation ? { voucherRegisteredAt: new Date() } : {}) }, { new: true }).lean();
-    if (!updated) throw new ConflictException('La solicitud no existe o su pago ya fue validado.');
+    if (!['Pendiente', 'En Proceso', 'Observado', 'Validado'].includes(status))
+      throw new BadRequestException('Estado de pago inválido.');
+    const patch: Record<string, unknown> = { status };
+    if (input.paymentOperation !== undefined) {
+      const paymentOperation = String(input.paymentOperation || '').trim();
+      if (paymentOperation.length > 100) throw new BadRequestException('Operación demasiado larga.');
+      patch.paymentOperation = paymentOperation;
+      if (status === 'En Proceso' && paymentOperation) patch.voucherRegisteredAt = new Date();
+    }
+    if (input.paymentDate !== undefined) {
+      const paymentDate = String(input.paymentDate || '').trim();
+      if (paymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new BadRequestException('Fecha de pago inválida.');
+      patch.paymentDate = paymentDate;
+    }
+    if (input.amountPaid !== undefined) {
+      const amountPaid = Number(input.amountPaid || 0);
+      if (!Number.isFinite(amountPaid) || amountPaid < 0) throw new BadRequestException('Monto pagado inválido.');
+      patch.amountPaid = amountPaid;
+    }
+    if (input.bankName !== undefined) {
+      const bankName = String(input.bankName || '').trim();
+      if (bankName.length > 100) throw new BadRequestException('Banco inválido.');
+      patch.bankName = bankName;
+    }
+    const updated = await this.requests.findOneAndUpdate({ id }, { $set: patch }, { new: true }).lean();
+    if (!updated) throw new NotFoundException('La solicitud no existe.');
     return updated;
   }
 
