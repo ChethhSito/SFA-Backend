@@ -36,7 +36,6 @@ export class ApplicantsController {
   }
 
   @Delete(':dni')
-  @UseGuards(AuthGuard)
   remove(@Param('dni') dni: string) {
     return this.applicantsService.remove(dni);
   }
