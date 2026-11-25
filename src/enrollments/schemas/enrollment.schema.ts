@@ -47,10 +47,10 @@ export class Enrollment {
   @Prop({ required: true, unique: true })
   studentDni: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   programId: string;
 
-  @Prop({ required: true, default: 'ADMITIDO' })
+  @Prop({ required: true, default: 'ADMITIDO', index: true })
   academicStatus: string;
 
   @Prop({ type: EnrollmentDocs, default: () => ({}) })

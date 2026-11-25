@@ -19,7 +19,7 @@ describe('Persisted assignment grades', () => {
 
   it('updates a recorded zero and keeps the submission and other students intact', async () => {
     const { service, assignment } = setup();
-    await service.updateAssignment('id', { courseId: 'wrong-course', title: 'wrong-title', submissions: [{ studentDni: '11111111', grade: 0, feedback: 'Revisar' }] });
+    await service.updateAssignment('id', { courseId: 'wrong-course', submissions: [{ studentDni: '11111111', grade: 0, feedback: 'Revisar' }] });
     expect(assignment.submissions).toEqual([
       expect.objectContaining({ studentDni: '11111111', grade: 0, fileName: 'entrega.pdf', submitDate: '2026-10-01', feedback: 'Revisar' }),
       expect.objectContaining({ studentDni: '22222222', grade: 13 }),

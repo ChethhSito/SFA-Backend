@@ -50,13 +50,13 @@ export class Applicant {
   @Prop({ required: true })
   lastName: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   email: string;
 
   @Prop({ required: true })
   phone: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   programId: string;
 
   @Prop({ required: true, default: 'No Pagado' })

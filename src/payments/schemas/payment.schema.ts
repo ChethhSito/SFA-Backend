@@ -5,7 +5,7 @@ export type PaymentDocument = Payment & Document;
 
 @Schema({ timestamps: true })
 export class Payment {
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   paymentId: string;
 
   @Prop({ required: true, index: true })

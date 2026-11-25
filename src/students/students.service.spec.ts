@@ -42,7 +42,7 @@ describe('Reversible student deactivation', () => {
   it('blocks enrolling a deactivated student through the API', async () => {
     const enrollment = { findOneAndUpdate: jest.fn() };
     const students = { findOne: () => query({ active: false }) };
-    const service = new EnrollmentsService(enrollment as never, students as never);
+    const service = new EnrollmentsService(enrollment as never, students as never, {} as never);
     await expect(service.update('12345678', { academicStatus: 'MATRICULADO' })).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.create({ studentDni: '12345678' })).rejects.toBeInstanceOf(BadRequestException);
     expect(enrollment.findOneAndUpdate).not.toHaveBeenCalled();

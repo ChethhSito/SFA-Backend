@@ -23,7 +23,7 @@ export class Graduation {
   @Prop({ required: true, unique: true })
   studentDni: string;
 
-  @Prop({ required: true, default: 'Solicitado' })
+  @Prop({ required: true, default: 'Solicitado', index: true })
   status: string;
 
   @Prop({ required: true, default: 'Solicitud' })

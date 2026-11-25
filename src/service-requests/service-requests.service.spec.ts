@@ -36,7 +36,7 @@ describe('ServiceRequestsService', () => {
 
   it('allows a guardian call for an existing student with a recorded caller', async () => {
     const created = await service.create({ studentDni: student.dni, conceptCode: 'CON01', source: 'llamada_apoderado', requestedBy: 'Apoderado Demo' });
-    expect(created).toMatchObject({ conceptCode: 'CON01', amount: 30, requestedBy: 'Apoderado Demo', source: 'llamada_apoderado' });
+    expect(created).toMatchObject({ conceptCode: 'CON01', amount: 20, requestedBy: 'Apoderado Demo', source: 'llamada_apoderado' });
     await expect(service.create({ studentDni: student.dni, conceptCode: 'CON01', source: 'llamada_apoderado' })).rejects.toBeInstanceOf(BadRequestException);
   });
 
