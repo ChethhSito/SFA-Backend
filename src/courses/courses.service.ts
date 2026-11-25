@@ -203,11 +203,26 @@ export class CoursesService {
   }
 
   // --- ASSIGNMENTS (TAREAS Y ENTREGAS DE ALUMNOS) ---
-  async getAssignments(courseId?: string): Promise<CourseAssignmentDocument[]> {
-    if (courseId) {
-      return this.assignmentModel.find({ courseId }).exec();
-    }
-    return this.assignmentModel.find().exec();
+  async getAssignments(courseId?: string): Promise<any[]> {
+    const query = courseId ? { courseId } : {};
+    return this.assignmentModel
+      .find(query)
+      .select('-contentBase64 -submissions.fileBase64')
+      .lean()
+      .exec();
+  }
+
+  async getSubmissionFile(assignmentId: string, studentDni: string) {
+    const asg = await this.assignmentModel.findById(assignmentId).lean().exec();
+    if (!asg) throw new NotFoundException('Tarea no encontrada.');
+    const sub: any = (asg.submissions || []).find((s) => s.studentDni === studentDni);
+    if (!sub?.fileBase64) throw new NotFoundException('Archivo de entrega no encontrado.');
+    const rawBase64 = sub.fileBase64.includes(',') ? sub.fileBase64.split(',').pop()! : sub.fileBase64;
+    return {
+      data: Buffer.from(rawBase64, 'base64'),
+      fileName: sub.fileName || 'entrega.pdf',
+      mimeType: sub.mimeType || (sub.fileName?.toLowerCase().endsWith('.png') ? 'image/png' : 'application/pdf')
+    };
   }
 
   async saveAssignment(dto: { courseId: string; title: string; description: string; dueDate: string; kind?: string; attachment?: string; rubric?: string; contentBase64?: string; mimeType?: string; submissions?: CourseAssignment['submissions'] }): Promise<CourseAssignmentDocument> {
@@ -242,7 +257,12 @@ export class CoursesService {
     this.validateAssignmentGrades(dto);
     const assignment = await this.assignmentModel.findById(id).exec();
     if (!assignment) throw new NotFoundException('Evaluación no encontrada.');
-    // IDs, course ownership and metadata are not replaced by a grading request.
+    // IDs and course ownership are not replaced by an update request.
+    if (dto.title !== undefined) assignment.title = dto.title;
+    if (dto.description !== undefined) assignment.description = dto.description;
+    if (dto.dueDate !== undefined) assignment.dueDate = dto.dueDate;
+    if (dto.rubric !== undefined) assignment.rubric = dto.rubric;
+    if (dto.attachment !== undefined) assignment.attachment = dto.attachment;
     if (dto.submissions) {
       const merged = new Map(assignment.submissions.map((submission) => [submission.studentDni, { ...submission }]));
       dto.submissions.forEach((submission: any) => {

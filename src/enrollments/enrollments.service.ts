@@ -111,7 +111,15 @@ export class EnrollmentsService {
   }
 
   async findByDni(studentDni: string): Promise<EnrollmentDocument> {
-    const enrollment = await this.enrollmentModel.findOne({ studentDni }).exec();
+    let enrollment = await this.enrollmentModel.findOne({ studentDni }).exec();
+    if (!enrollment) {
+      const applicant = await this.connection.collection('applicants').findOne({
+        $or: [{ applicantCode: studentDni }, { id: studentDni }]
+      });
+      if (applicant && applicant.dni) {
+        enrollment = await this.enrollmentModel.findOne({ studentDni: applicant.dni }).exec();
+      }
+    }
     if (!enrollment) {
       throw new NotFoundException(`Enrollment for student DNI ${studentDni} not found`);
     }

@@ -123,6 +123,15 @@ export class CoursesController {
     response.send(file.data);
   }
 
+  @Get('assignments/:id/submissions/:studentDni/file')
+  async downloadSubmissionFile(@Param('id') id: string, @Param('studentDni') studentDni: string, @Res() response: Response) {
+    const file = await this.coursesService.getSubmissionFile(id, studentDni);
+    response.removeHeader('X-Frame-Options');
+    response.setHeader('Content-Type', file.mimeType || 'application/pdf');
+    response.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    response.send(file.data);
+  }
+
   @Patch('assignments/:id')
   updateAssignment(@Param('id') id: string, @Body() body: any) {
     return this.coursesService.updateAssignment(id, body);
