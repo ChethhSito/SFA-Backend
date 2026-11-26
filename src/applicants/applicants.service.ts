@@ -41,6 +41,8 @@ export class ApplicantsService {
 
       const existing = await this.applicantModel
         .find({ applicantCode: { $regex: `^${prefix}` } })
+        .select('applicantCode')
+        .lean()
         .exec();
       let maxSerial = 0;
       existing.forEach((app) => {
@@ -109,7 +111,11 @@ export class ApplicantsService {
   async update(dni: string, updateApplicantDto: any): Promise<ApplicantDocument> {
     const { _id, id, ...cleanData } = updateApplicantDto;
 
-    const existing = await this.applicantModel.findOne({ dni }).exec();
+    const existing = await this.applicantModel
+      .findOne({ dni })
+      .select('dni periodId applicantCode paymentStatus')
+      .lean()
+      .exec();
     if (!existing) {
       throw new NotFoundException(`Applicant with DNI ${dni} not found`);
     }
@@ -125,39 +131,41 @@ export class ApplicantsService {
       delete cleanData.applicantCode;
     }
 
-    if (cleanData.docs && existing.docs) {
-      const existingDocs: any =
-        typeof (existing.docs as any).toObject === 'function'
-          ? (existing.docs as any).toObject()
-          : existing.docs;
-      const mergedDocs: any = { ...existingDocs };
-      for (const key of ['dniFile', 'certificadoFile', 'partidaFile', 'fotoFile']) {
-        if (cleanData.docs[key]) {
-          const prevDoc = existingDocs[key] || {};
-          const nextDoc = cleanData.docs[key];
-          mergedDocs[key] = {
-            ...prevDoc,
-            ...nextDoc,
-            fileDataUrl:
-              nextDoc.status === 'No Enviado'
-                ? undefined
-                : nextDoc.fileDataUrl || prevDoc.fileDataUrl,
-          };
+    const setPayload: Record<string, any> = {};
+    const unsetPayload: Record<string, any> = {};
+
+    for (const [k, v] of Object.entries(cleanData)) {
+      if (k === 'docs' && v && typeof v === 'object') {
+        for (const key of ['dniFile', 'certificadoFile', 'partidaFile', 'fotoFile']) {
+          const nextDoc = (v as any)[key];
+          if (nextDoc && typeof nextDoc === 'object') {
+            if (nextDoc.status !== undefined) setPayload[`docs.${key}.status`] = nextDoc.status;
+            if (nextDoc.fileName !== undefined) setPayload[`docs.${key}.fileName`] = nextDoc.fileName;
+            if (nextDoc.observations !== undefined) setPayload[`docs.${key}.observations`] = nextDoc.observations;
+            if (nextDoc.status === 'No Enviado') {
+              unsetPayload[`docs.${key}.fileDataUrl`] = '';
+            } else if (nextDoc.fileDataUrl) {
+              setPayload[`docs.${key}.fileDataUrl`] = nextDoc.fileDataUrl;
+            }
+          }
         }
+      } else if (k === 'paymentVoucherUrl') {
+        if (cleanData.paymentStatus === 'No Pagado') {
+          unsetPayload.paymentVoucherUrl = '';
+        } else if (v) {
+          setPayload.paymentVoucherUrl = v;
+        }
+      } else {
+        setPayload[k] = v;
       }
-      cleanData.docs = mergedDocs;
     }
 
-    if (
-      cleanData.paymentStatus !== 'No Pagado' &&
-      !cleanData.paymentVoucherUrl &&
-      (existing as any).paymentVoucherUrl
-    ) {
-      cleanData.paymentVoucherUrl = (existing as any).paymentVoucherUrl;
-    }
+    const updateOps: Record<string, any> = {};
+    if (Object.keys(setPayload).length > 0) updateOps.$set = setPayload;
+    if (Object.keys(unsetPayload).length > 0) updateOps.$unset = unsetPayload;
 
     const updated = await this.applicantModel
-      .findOneAndUpdate({ dni }, { $set: cleanData }, { returnDocument: 'after' })
+      .findOneAndUpdate({ dni }, updateOps, { returnDocument: 'after' })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Applicant with DNI ${dni} not found`);
