@@ -166,6 +166,9 @@ export class ApplicantsService {
 
     const updated = await this.applicantModel
       .findOneAndUpdate({ dni }, updateOps, { returnDocument: 'after' })
+      .select(
+        '-paymentVoucherUrl -docs.dniFile.fileDataUrl -docs.certificadoFile.fileDataUrl -docs.partidaFile.fileDataUrl -docs.fotoFile.fileDataUrl',
+      )
       .exec();
     if (!updated) {
       throw new NotFoundException(`Applicant with DNI ${dni} not found`);
