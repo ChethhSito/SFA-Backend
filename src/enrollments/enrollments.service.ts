@@ -143,7 +143,11 @@ export class EnrollmentsService {
     const { _id, id, ...cleanData } = updateEnrollmentDto;
     cleanData.studentDni = studentDni;
 
-    const existing = await this.enrollmentModel.findOne({ studentDni }).exec();
+    const existing = await this.enrollmentModel
+      .findOne({ studentDni })
+      .select('paymentStatus paymentVoucherFileName')
+      .lean()
+      .exec();
     if (existing) {
       // Proteger contra sobreescritura accidental por creación tardía de matrícula sin datos de pago
       if (
@@ -156,10 +160,9 @@ export class EnrollmentsService {
       if (
         cleanData.paymentStatus !== 'No Pagado' &&
         cleanData.paymentType !== 'number' &&
-        !cleanData.paymentVoucherUrl &&
-        existing.paymentVoucherUrl
+        !cleanData.paymentVoucherUrl
       ) {
-        cleanData.paymentVoucherUrl = existing.paymentVoucherUrl;
+        delete cleanData.paymentVoucherUrl;
       }
       if (
         cleanData.paymentStatus !== 'No Pagado' &&
@@ -177,6 +180,7 @@ export class EnrollmentsService {
         { $set: cleanData },
         { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
       )
+      .select('-paymentVoucherUrl')
       .exec();
     if (!updated) {
       throw new NotFoundException(`Enrollment for student DNI ${studentDni} not found`);

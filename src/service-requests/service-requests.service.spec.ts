@@ -46,7 +46,7 @@ describe('ServiceRequestsService', () => {
     expect(requests.findOneAndUpdate).toHaveBeenCalledWith(
       { id, studentDni: student.dni, status: { $in: ['Pendiente', 'Observado'] } },
       expect.objectContaining({ status: 'En Proceso', paymentOperation: 'BN-20261020-01', bankName: 'Banco de la Nación' }),
-      { new: true },
+      expect.objectContaining({ new: true }),
     );
   });
 

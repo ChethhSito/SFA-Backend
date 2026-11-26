@@ -130,7 +130,7 @@ export class ServiceRequestsService {
       if (bankName.length > 100) throw new BadRequestException('Banco inválido.');
       patch.bankName = bankName;
     }
-    const updated = await this.requests.findOneAndUpdate({ id }, { $set: patch }, { new: true }).lean();
+    const updated = await this.requests.findOneAndUpdate({ id }, { $set: patch }, { new: true, projection: { voucherUrl: 0, resultPdf: 0 } }).lean();
     if (!updated) throw new NotFoundException('La solicitud no existe.');
     return updated;
   }
@@ -148,7 +148,7 @@ export class ServiceRequestsService {
     const dni = String(input?.studentDni || input?.teacherDni || '').trim();
     if (!/^\d{8}$/.test(dni)) throw new BadRequestException('DNI inválido.');
     const owner = input?.teacherDni ? { teacherDni: dni } : { studentDni: dni };
-    const request = await this.requests.findOne({ id, ...owner }).lean();
+    const request = await this.requests.findOne({ id, ...owner }, { status: 1 }).lean();
     if (!request) throw new NotFoundException('La solicitud no pertenece al estudiante indicado.');
     if (request.status !== 'Pendiente' && request.status !== 'Observado')
       throw new ConflictException('El voucher de esta solicitud ya está en revisión o fue validado.');
@@ -175,7 +175,7 @@ export class ServiceRequestsService {
         ...(voucherUrl ? { voucherUrl } : {}),
         ...(voucherFileName ? { voucherFileName } : {}),
       },
-      { new: true },
+      { new: true, projection: { voucherUrl: 0, resultPdf: 0 } },
     ).lean();
     if (!updated) throw new ConflictException('La solicitud cambió de estado. Actualice la página.');
     return updated;
@@ -186,7 +186,7 @@ export class ServiceRequestsService {
       throw new BadRequestException('Adjunte un PDF válido de hasta 5 MB.');
     const updated = await this.requests.findOneAndUpdate({ id }, {
       $set: { status: 'Validado', deliveryStatus: 'Emitido', resultFileName: file.originalname.slice(0, 180), resultPdf: file.buffer },
-    }, { new: true }).select('-resultPdf').lean();
+    }, { new: true, projection: { voucherUrl: 0, resultPdf: 0 } }).select('-resultPdf').lean();
     if (!updated) throw new NotFoundException('La solicitud no existe.');
     return updated;
   }
