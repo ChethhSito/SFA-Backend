@@ -17,6 +17,11 @@ export class PaymentsController {
     return this.paymentsService.findByStudentDni(studentDni);
   }
 
+  @Get(':id')
+  async findOne(@Param('id') id: string): Promise<Payment> {
+    return this.paymentsService.findOne(id);
+  }
+
   @Post()
   async create(@Body() createPaymentDto: CreatePaymentDto): Promise<Payment> {
     return this.paymentsService.create(createPaymentDto);

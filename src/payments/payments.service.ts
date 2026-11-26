@@ -11,12 +11,48 @@ export class PaymentsService {
     private paymentModel: Model<PaymentDocument>,
   ) {}
 
+  private stripHeavyNotes(doc: any): any {
+    if (!doc) return doc;
+    const obj = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+    if (typeof obj.notes === 'string' && obj.notes.length > 500) {
+      try {
+        const parsed = JSON.parse(obj.notes);
+        if (parsed && typeof parsed === 'object') {
+          let changed = false;
+          for (const key of ['voucherDataUrl', 'fileDataUrl', 'constanciaDataUrl']) {
+            if (typeof parsed[key] === 'string' && parsed[key].startsWith('data:')) {
+              parsed[key] = '';
+              parsed.hasVoucherData = true;
+              changed = true;
+            }
+          }
+          if (changed) {
+            obj.notes = JSON.stringify(parsed);
+          }
+        }
+      } catch {}
+    }
+    return obj;
+  }
+
   async findAll(): Promise<Payment[]> {
-    return this.paymentModel.find().sort({ createdAt: -1 }).exec();
+    const list = await this.paymentModel.find().sort({ createdAt: -1 }).lean().exec();
+    return list.map((item) => this.stripHeavyNotes(item)) as Payment[];
+  }
+
+  async findOne(id: string): Promise<Payment> {
+    const found = await this.paymentModel.findOne({ paymentId: id }).lean().exec();
+    if (found) return found as Payment;
+    const byId = await this.paymentModel.findById(id).lean().exec().catch(() => null);
+    if (!byId) {
+      throw new NotFoundException(`Pago con id "${id}" no encontrado.`);
+    }
+    return byId as Payment;
   }
 
   async findByStudentDni(studentDni: string): Promise<Payment[]> {
-    return this.paymentModel.find({ studentDni }).sort({ createdAt: -1 }).exec();
+    const list = await this.paymentModel.find({ studentDni }).sort({ createdAt: -1 }).lean().exec();
+    return list.map((item) => this.stripHeavyNotes(item)) as Payment[];
   }
 
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
